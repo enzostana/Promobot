@@ -1,0 +1,113 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: promobot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-promobot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-promosecret123}
+      POSTGRES_DB: ${POSTGRES_DB:-promobot}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - promonet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-promobot} -d ${POSTGRES_DB:-promobot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: promobot_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - promonet
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: promobot_api
+    restart: unless-stopped
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD:-promosecret123}@postgres:5432/${POSTGRES_DB:-promobot}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - promonet
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: promobot_worker
+    restart: unless-stopped
+    command: python -m app.workers.tasks
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD:-promosecret123}@postgres:5432/${POSTGRES_DB:-promobot}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    volumes:
+      - media_cache:/app/media_cache
+    networks:
+      - promonet
+
+  telegram_listener:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: promobot_telegram_listener
+    restart: unless-stopped
+    command: python -m app.adapters.telegram
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - media_cache:/app/media_cache
+      - session_data:/app/sessions
+    networks:
+      - promonet
+
+networks:
+  promonet:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_cache:
+  session_data:

@@ -1,0 +1,27 @@
+# Sensitive / local-only files - never bake into images
+.env
+.env.*
+
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Local environments
+*.venv
+venv/
+promovenv/
+
+# Sessions & media
+*.session
+*.session-journal
+media_cache/
+
+# Logs & scratch
+*.log
+scratch/
