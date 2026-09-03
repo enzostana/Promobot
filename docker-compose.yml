@@ -233,15 +233,11 @@ services:
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     env_file:
       - .env
-    environment:
-      - TUNNEL_HOSTNAME=promobot.enzostana.space
     depends_on:
       api:
         condition: service_healthy
     networks:
       - promonet
-    secrets:
-      - cloudflare_token
     deploy:
       resources:
         limits:
@@ -283,5 +279,3 @@ secrets:
     file: ./secrets/shopee_app_id.txt
   shopee_tag:
     file: ./secrets/shopee_tag.txt
-  cloudflare_token:
-    file: ./secrets/cloudflare_token.txt
