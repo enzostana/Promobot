@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     DEDUP_WINDOW_HOURS: int = 24
     WORKER_MAX_ATTEMPTS: int = 3
 
+    # Database Connection Pool
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_RECYCLE: int = 1800
+    DB_POOL_TIMEOUT: int = 30
+
     # Telegram Credentials & Config - no defaults for secrets
     TELEGRAM_API_ID: Optional[int] = None
     TELEGRAM_API_HASH: Optional[str] = None
@@ -52,6 +58,10 @@ class Settings(BaseSettings):
     MERCADOLIVRE_TAG: Optional[str] = None
     SHOPEE_APP_ID: Optional[str] = None
     SHOPEE_TAG: Optional[str] = None
+
+    # Dashboard Auth
+    DASHBOARD_USERNAME: Optional[str] = None
+    DASHBOARD_PASSWORD: Optional[str] = None
 
     # Filters
     MIN_DISCOUNT_PERCENT: float = 0.0

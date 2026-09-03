@@ -9,7 +9,11 @@ engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
     future=True,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    pool_size=getattr(settings, "DB_POOL_SIZE", 5),
+    max_overflow=getattr(settings, "DB_MAX_OVERFLOW", 10),
+    pool_recycle=getattr(settings, "DB_POOL_RECYCLE", 1800),
+    pool_timeout=getattr(settings, "DB_POOL_TIMEOUT", 30),
 )
 
 async_session_maker = async_sessionmaker(
