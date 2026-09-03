@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
+from urllib.parse import quote_plus
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -77,12 +78,12 @@ class Settings(BaseSettings):
     @property
     def DATABASE_URL(self) -> str:
         pwd = self.POSTGRES_PASSWORD or _read_secret("postgres_password") or ""
-        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{pwd}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{quote_plus(pwd)}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     @property
     def DATABASE_URL_SYNC(self) -> str:
         pwd = self.POSTGRES_PASSWORD or _read_secret("postgres_password") or ""
-        return f"postgresql://{self.POSTGRES_USER}:{pwd}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        return f"postgresql://{self.POSTGRES_USER}:{quote_plus(pwd)}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -44,6 +44,9 @@ promovenv/
 postgres_data/
 redis_data/
 
+# Secrets (nunca commitar credenciais)
+secrets/*.txt
+
 # IDE files
 .idea/
 .vscode/

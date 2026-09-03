@@ -14,14 +14,15 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 settings = get_settings()
-# Override database URL from app settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Override database URL from app settings (bypass configparser, which
+# would mangle percent-encoded characters such as %40 in the password)
+DATABASE_URL = settings.DATABASE_URL
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = DATABASE_URL
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -42,7 +43,7 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        {"sqlalchemy.url": DATABASE_URL},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

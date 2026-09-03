@@ -122,8 +122,7 @@ class Worker:
             logger.error(f"[WORKER] Mensagem {raw_msg.id} esgotou tentativas; movendo para dead-letter.")
             await self.queue.push_dead(raw_msg)
 
-
-async def _cleanup_media_cache(self) -> None:
+    async def _cleanup_media_cache(self) -> None:
         """Remove media files older than MEDIA_CACHE_TTL_DAYS (default 7)."""
         from pathlib import Path
         import time
