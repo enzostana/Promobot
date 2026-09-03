@@ -7,8 +7,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-promobot}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_DB: ${POSTGRES_DB:-promobot}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -25,8 +23,6 @@ services:
     image: redis:7-alpine
     container_name: promobot_redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -89,6 +85,12 @@ services:
       - mercadolivre_tag
       - shopee_app_id
       - shopee_tag
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   worker:
     build:
@@ -120,6 +122,12 @@ services:
       - mercadolivre_tag
       - shopee_app_id
       - shopee_tag
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   telegram_listener:
     build:
@@ -144,6 +152,12 @@ services:
       - telegram_bot_token
       - telegram_api_hash
       - telegram_session_string
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
 networks:
   promonet:

@@ -14,6 +14,7 @@ from app.core.publisher import Publisher
 from app.core.models import Promotion, PublicationResult, RawMessage
 from app.config.settings import Settings, get_settings
 from app.workers.queue import RedisQueue
+from app.workers.health_server import run_health_server
 
 logger = logging.getLogger(__name__)
 
@@ -307,12 +308,17 @@ async def run_telegram_listener():
     logger.info("[TELEGRAM] Iniciando listener do Telegram...")
     settings = get_settings()
     source = TelegramAdapter(settings=settings)
+
+    # Start health check server
+    health_runner = await run_health_server("telegram_listener", 8082)
+
     try:
         await source.listen()
     except (KeyboardInterrupt, SystemExit):
         logger.info("[TELEGRAM] Encerrando listener...")
     finally:
         await source.stop()
+        await health_runner.cleanup()
 
 
 if __name__ == "__main__":

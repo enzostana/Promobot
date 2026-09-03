@@ -8,6 +8,8 @@ from app.core.processor import PromotionProcessor
 from app.adapters.telegram import TelegramPublisher
 from app.workers.queue import RedisQueue
 from app.database.session import async_session_maker, init_db
+from app.workers.health_server import run_health_server
+import redis.asyncio as redis
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,6 +35,9 @@ class Worker:
         self._running = True
         logger.info("[WORKER] Worker de promoções inicializado. Consumindo fila...")
 
+        # Start health check server
+        health_runner = await run_health_server("worker", 8081)
+
         # Initialize DB schema if tables don't exist yet
         try:
             await init_db()
@@ -45,6 +50,8 @@ class Worker:
                 loop.add_signal_handler(sig, self.stop)
             except NotImplementedError:
                 pass
+
+        redis_client = redis.from_url(self.settings.REDIS_URL)
 
         while self._running:
             try:
@@ -72,6 +79,14 @@ class Worker:
                         await self._handle_failure(raw_msg)
                     else:
                         logger.info(f"[WORKER] Processamento concluído com sucesso: status={result.status.value}")
+                        # Update last processed timestamp for health checks
+                        try:
+                            await redis_client.set(
+                                "promobot:last_processed:worker",
+                                str(int(asyncio.get_event_loop().time()))
+                            )
+                        except Exception:
+                            pass
 
             except asyncio.CancelledError:
                 break
@@ -80,6 +95,8 @@ class Worker:
                 await asyncio.sleep(1)
 
         logger.info("[WORKER] Worker finalizado com sucesso.")
+        await health_runner.cleanup()
+        await redis_client.aclose()
 
     def stop(self) -> None:
         logger.info("[WORKER] Sinal de encerramento recebido...")
