@@ -18,6 +18,19 @@ services:
       retries: 5
     secrets:
       - postgres_password
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     image: redis:7-alpine
@@ -32,6 +45,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "256M"
+        reservations:
+          cpus: "0.05"
+          memory: "64M"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   migrator:
     build:
@@ -53,7 +79,7 @@ services:
       - postgres_password
     restart: "no"
 
-  api:
+api:
     build:
       context: .
       dockerfile: Dockerfile
@@ -91,8 +117,21 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+        reservations:
+          cpus: "0.25"
+          memory: "256M"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  worker:
+worker:
     build:
       context: .
       dockerfile: Dockerfile
@@ -122,6 +161,19 @@ services:
       - mercadolivre_tag
       - shopee_app_id
       - shopee_tag
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
       interval: 30s
@@ -152,6 +204,19 @@ services:
       - telegram_bot_token
       - telegram_api_hash
       - telegram_session_string
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "256M"
+        reservations:
+          cpus: "0.05"
+          memory: "64M"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8082/health || exit 1"]
       interval: 30s
