@@ -70,6 +70,7 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD:-promosecret123}@postgres:5432/${POSTGRES_DB:-promobot}
       - REDIS_URL=redis://redis:6379/0
+      - WORKER_MAX_ATTEMPTS=${WORKER_MAX_ATTEMPTS:-3}
     depends_on:
       postgres:
         condition: service_healthy

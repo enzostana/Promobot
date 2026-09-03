@@ -3,6 +3,7 @@ import logging
 import signal
 from typing import Optional
 from app.config.settings import get_settings
+from app.core.models import RawMessage
 from app.core.processor import PromotionProcessor
 from app.adapters.telegram import TelegramPublisher
 from app.workers.queue import RedisQueue
@@ -52,18 +53,25 @@ class Worker:
                 if not raw_msg:
                     continue
 
-                logger.info(f"[WORKER] Nova mensagem recebida da fila: id={raw_msg.id} (origem: {raw_msg.source_chat_id})")
+                logger.info(f"[WORKER] Nova mensagem recebida da fila: id={raw_msg.id} (origem: {raw_msg.source_chat_id}, tentativa {raw_msg.attempts + 1})")
 
                 # Open database session for this message transaction
                 async with async_session_maker() as db_session:
                     try:
                         result = await self.processor.process(raw_msg, db_session=db_session)
                         await db_session.commit()
-                        if result:
-                            logger.info(f"[WORKER] Processamento concluído com sucesso: status={result.status.value}")
                     except Exception as err:
                         await db_session.rollback()
                         logger.error(f"[WORKER] Erro no processamento da mensagem {raw_msg.id}: {err}", exc_info=True)
+                        await self._handle_failure(raw_msg)
+                        continue
+
+                    # Failure retry: unexpected error (None) or transient FAILED status
+                    if result is None or getattr(result, "status", None) == "failed":
+                        logger.warning(f"[WORKER] Processamento falhou para {raw_msg.id} (tentativa {raw_msg.attempts + 1})")
+                        await self._handle_failure(raw_msg)
+                    else:
+                        logger.info(f"[WORKER] Processamento concluído com sucesso: status={result.status.value}")
 
             except asyncio.CancelledError:
                 break
@@ -76,6 +84,19 @@ class Worker:
     def stop(self) -> None:
         logger.info("[WORKER] Sinal de encerramento recebido...")
         self._running = False
+
+    async def _handle_failure(self, raw_msg: RawMessage) -> None:
+        """
+        Handles a transient failure: re-enqueues the message (incrementing the
+        attempt counter) or moves it to the dead-letter queue when exhausted.
+        """
+        raw_msg.attempts += 1
+        if raw_msg.attempts < self.queue.max_attempts:
+            logger.info(f"[WORKER] Re-enfileirando {raw_msg.id} (tentativa {raw_msg.attempts}/{self.queue.max_attempts})")
+            await self.queue.enqueue(raw_msg)
+        else:
+            logger.error(f"[WORKER] Mensagem {raw_msg.id} esgotou tentativas; movendo para dead-letter.")
+            await self.queue.push_dead(raw_msg)
 
 
 async def run_worker():

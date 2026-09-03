@@ -11,20 +11,26 @@ logger = logging.getLogger(__name__)
 class RedisQueue:
     """
     Asynchronous queue client using Redis lists (RPUSH / BLPOP).
+
+    A failed message can be re-enqueued (retry) and, once it exceeds the
+    max attempts, moved to a dead-letter queue so it is never silently lost.
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Optional[Settings] = None, client=None):
         self.settings = settings or get_settings()
-        self.client: Optional[redis.Redis] = None
         self.queue_name = self.settings.REDIS_QUEUE_NAME
+        self.dead_queue_name = f"{self.queue_name}:dead"
+        self.max_attempts = self.settings.WORKER_MAX_ATTEMPTS
+        self._client = client
+        self._injected = client is not None
 
     async def get_client(self) -> redis.Redis:
-        if self.client is None:
-            self.client = redis.from_url(
+        if self._client is None:
+            self._client = redis.from_url(
                 self.settings.REDIS_URL,
                 decode_responses=True
             )
-        return self.client
+        return self._client
 
     async def enqueue(self, raw_msg: RawMessage) -> None:
         try:
@@ -33,6 +39,16 @@ class RedisQueue:
             await client.rpush(self.queue_name, payload)
         except Exception as e:
             logger.error(f"[QUEUE] Erro ao enfileirar mensagem {raw_msg.id}: {e}", exc_info=True)
+            raise
+
+    async def push_dead(self, raw_msg: RawMessage) -> None:
+        """Sends an exhausted message to the dead-letter queue for audit."""
+        try:
+            client = await self.get_client()
+            payload = raw_msg.model_dump_json()
+            await client.rpush(self.dead_queue_name, payload)
+        except Exception as e:
+            logger.error(f"[QUEUE] Erro ao mover mensagem {raw_msg.id} para dead-letter: {e}", exc_info=True)
             raise
 
     async def dequeue(self, timeout: int = 2) -> Optional[RawMessage]:
@@ -57,6 +73,7 @@ class RedisQueue:
             return 0
 
     async def close(self) -> None:
-        if self.client:
-            await self.client.aclose()
-            self.client = None
+        # Only close clients this queue owns (an injected client is managed elsewhere).
+        if self._client is not None and self._injected is False:
+            await self._client.aclose()
+        self._client = None

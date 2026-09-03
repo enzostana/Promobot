@@ -23,6 +23,7 @@ class RawMessage(BaseModel):
     media_path: Optional[str] = None
     media_url: Optional[str] = None
     urls: List[str] = Field(default_factory=list)
+    attempts: int = 0
     received_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

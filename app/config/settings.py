@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     REDIS_QUEUE_NAME: str = "promobot:raw_messages"
     REDIS_DEDUP_PREFIX: str = "promobot:dedup:"
     DEDUP_WINDOW_HOURS: int = 24
+    WORKER_MAX_ATTEMPTS: int = 3
 
     # Telegram Credentials & Config
     TELEGRAM_API_ID: Optional[int] = None
