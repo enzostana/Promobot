@@ -121,6 +121,8 @@ class TelegramAdapter(MessageSource):
     ) -> RawMessage:
         """Build a normalized RawMessage (pure, testable) from Telegram fields."""
         urls = self._extract_urls(text, entities)
+        # Generate correlation ID for tracing this message through the pipeline
+        correlation_id = uuid.uuid4().hex[:8]
         return RawMessage(
             id=str(uuid.uuid4()),
             source="telegram",
@@ -130,6 +132,7 @@ class TelegramAdapter(MessageSource):
             text=text,
             media_path=None,
             urls=urls,
+            correlation_id=correlation_id,
             received_at=datetime.now(timezone.utc)
         )
 

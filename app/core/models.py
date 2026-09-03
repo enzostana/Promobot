@@ -24,6 +24,7 @@ class RawMessage(BaseModel):
     media_url: Optional[str] = None
     urls: List[str] = Field(default_factory=list)
     attempts: int = 0
+    correlation_id: Optional[str] = None
     received_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

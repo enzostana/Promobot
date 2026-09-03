@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 import logging
-from fastapi import FastAPI
+import uuid
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.settings import get_settings
@@ -9,18 +10,16 @@ from app.api.routes.health import router as health_router
 from app.api.routes.promotions import router as promotions_router
 from app.api.routes.sources import router as sources_router
 from app.api.routes.publications import router as publications_router
+from app.logging_config import setup_logging, get_logger, set_correlation_id, correlation_id_var
 
-logger = logging.getLogger("promobot")
+logger = get_logger("promobot")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup actions
     settings = get_settings()
-    logging.basicConfig(
-        level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
+    setup_logging(settings.LOG_LEVEL, json_format=settings.APP_ENV == "production")
     logger.info("Iniciando PromoBot API...")
     try:
         await init_db()
@@ -32,6 +31,19 @@ async def lifespan(app: FastAPI):
 
     # Shutdown actions
     logger.info("Encerrando PromoBot API...")
+
+
+async def correlation_id_middleware(request: Request, call_next):
+    """Add correlation ID to request and response headers."""
+    correlation_id = request.headers.get("X-Request-ID", uuid.uuid4().hex[:8])
+    request.state.correlation_id = correlation_id
+    token = set_correlation_id(correlation_id)
+    try:
+        response = await call_next(request)
+    finally:
+        correlation_id_var.reset(token)
+    response.headers["X-Request-ID"] = correlation_id
+    return response
 
 
 def create_app() -> FastAPI:
@@ -53,6 +65,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Add correlation ID middleware
+    app.middleware("http")(correlation_id_middleware)
+
     app.include_router(health_router)
     app.include_router(promotions_router)
     app.include_router(sources_router)
@@ -62,6 +77,7 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
 
 if __name__ == "__main__":
     import uvicorn
