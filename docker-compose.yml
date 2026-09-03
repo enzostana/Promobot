@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-promobot}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-promosecret123}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_DB: ${POSTGRES_DB:-promobot}
     ports:
       - "5432:5432"
@@ -18,6 +18,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    secrets:
+      - postgres_password
 
   redis:
     image: redis:7-alpine
@@ -35,6 +37,26 @@ services:
       timeout: 5s
       retries: 5
 
+  migrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: promobot_migrator
+    command: alembic upgrade head
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-promobot}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    secrets:
+      - postgres_password
+    restart: "no"
+
   api:
     build:
       context: .
@@ -42,21 +64,31 @@ services:
     container_name: promobot_api
     restart: unless-stopped
     command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD:-promosecret123}@postgres:5432/${POSTGRES_DB:-promobot}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-promobot}
       - REDIS_URL=redis://redis:6379/0
     depends_on:
+      migrator:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
       - promonet
+    secrets:
+      - postgres_password
+      - telegram_bot_token
+      - telegram_api_hash
+      - amazon_tag
+      - mercadolivre_tag
+      - shopee_app_id
+      - shopee_tag
 
   worker:
     build:
@@ -68,7 +100,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD:-promosecret123}@postgres:5432/${POSTGRES_DB:-promobot}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-promobot}
       - REDIS_URL=redis://redis:6379/0
       - WORKER_MAX_ATTEMPTS=${WORKER_MAX_ATTEMPTS:-3}
     depends_on:
@@ -76,12 +108,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      api:
-        condition: service_started
     volumes:
       - media_cache:/app/media_cache
     networks:
       - promonet
+    secrets:
+      - postgres_password
+      - telegram_bot_token
+      - telegram_api_hash
+      - amazon_tag
+      - mercadolivre_tag
+      - shopee_app_id
+      - shopee_tag
 
   telegram_listener:
     build:
@@ -102,6 +140,10 @@ services:
       - session_data:/app/sessions
     networks:
       - promonet
+    secrets:
+      - telegram_bot_token
+      - telegram_api_hash
+      - telegram_session_string
 
 networks:
   promonet:
@@ -112,3 +154,21 @@ volumes:
   redis_data:
   media_cache:
   session_data:
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  telegram_bot_token:
+    file: ./secrets/telegram_bot_token.txt
+  telegram_api_hash:
+    file: ./secrets/telegram_api_hash.txt
+  telegram_session_string:
+    file: ./secrets/telegram_session_string.txt
+  amazon_tag:
+    file: ./secrets/amazon_tag.txt
+  mercadolivre_tag:
+    file: ./secrets/mercadolivre_tag.txt
+  shopee_app_id:
+    file: ./secrets/shopee_app_id.txt
+  shopee_tag:
+    file: ./secrets/shopee_tag.txt
