@@ -53,6 +53,9 @@ class Worker:
 
         redis_client = redis.from_url(self.settings.REDIS_URL)
 
+        # Clean up old media files on startup
+        await self._cleanup_media_cache()
+
         while self._running:
             try:
                 # Wait for next item in Redis queue
@@ -118,6 +121,32 @@ class Worker:
         else:
             logger.error(f"[WORKER] Mensagem {raw_msg.id} esgotou tentativas; movendo para dead-letter.")
             await self.queue.push_dead(raw_msg)
+
+
+async def _cleanup_media_cache(self) -> None:
+        """Remove media files older than MEDIA_CACHE_TTL_DAYS (default 7)."""
+        from pathlib import Path
+        import time
+
+        ttl_days = getattr(self.settings, "MEDIA_CACHE_TTL_DAYS", 7)
+        cutoff = time.time() - (ttl_days * 86400)
+        media_dir = Path("media_cache")
+
+        if not media_dir.exists():
+            return
+
+        removed = 0
+        for file_path in media_dir.iterdir():
+            if file_path.is_file():
+                try:
+                    if file_path.stat().st_mtime < cutoff:
+                        file_path.unlink()
+                        removed += 1
+                except Exception as e:
+                    logger.warning(f"[WORKER] Erro ao remover {file_path}: {e}")
+
+        if removed:
+            logger.info(f"[WORKER] Limpeza de media_cache: {removed} arquivo(s) removido(s) (TTL={ttl_days}d)")
 
 
 async def run_worker():
