@@ -106,10 +106,14 @@ class Worker:
         """
         Handles a transient failure: re-enqueues the message (incrementing the
         attempt counter) or moves it to the dead-letter queue when exhausted.
+        Uses exponential backoff before re-enqueueing.
         """
         raw_msg.attempts += 1
         if raw_msg.attempts < self.queue.max_attempts:
-            logger.info(f"[WORKER] Re-enfileirando {raw_msg.id} (tentativa {raw_msg.attempts}/{self.queue.max_attempts})")
+            # Exponential backoff: 2^attempt seconds, max 60s
+            delay = min(2 ** raw_msg.attempts, 60)
+            logger.info(f"[WORKER] Aguardando {delay}s antes de re-enfileirar {raw_msg.id} (tentativa {raw_msg.attempts}/{self.queue.max_attempts})")
+            await asyncio.sleep(delay)
             await self.queue.enqueue(raw_msg)
         else:
             logger.error(f"[WORKER] Mensagem {raw_msg.id} esgotou tentativas; movendo para dead-letter.")

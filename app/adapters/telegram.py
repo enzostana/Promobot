@@ -193,18 +193,30 @@ class TelegramPublisher(Publisher):
     """
     Telegram publisher implementation.
     Publishes formatted promotion posts with optional photo to TELEGRAM_TARGET_CHAT.
-    Uses Telegram Bot API HTTP for direct, robust messaging.
+    Uses Telegram Bot API HTTP for direct, robust messaging with retry logic.
     """
 
     def __init__(self, settings: Optional[Settings] = None, client: Optional[httpx.AsyncClient] = None):
         self.settings = settings or get_settings()
         self._client = client
 
+    def _create_retry_transport(self) -> httpx.AsyncClient:
+        """Create an httpx client with retry logic for transient errors."""
+        # Retry on 429 (rate limit), 5xx server errors, and network errors
+        retry = httpx.Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
+        )
+        transport = httpx.AsyncHTTPTransport(retries=retry)
+        return httpx.AsyncClient(transport=transport, timeout=30.0)
+
     async def _http_client(self) -> httpx.AsyncClient:
         if self._client is not None:
             return self._client
-        # Fallback: create a short-lived client per request (production behavior)
-        client = httpx.AsyncClient(timeout=30.0)
+        # Fallback: create a short-lived client with retry transport
+        client = self._create_retry_transport()
         return await client.__aenter__()
 
     async def _http_close(self, client: httpx.AsyncClient) -> None:
