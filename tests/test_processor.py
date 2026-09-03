@@ -143,3 +143,30 @@ async def test_pipeline_handles_publisher_failure(async_db_session, test_setting
     assert promo is not None
     assert promo.status == PromotionStatus.FAILED
     assert "Simulated publication error" in promo.error_message
+
+
+class RaisingPublisher:
+    """Publisher that raises instead of returning a result."""
+
+    async def publish(self, promotion, formatted_message):
+        raise RuntimeError("boom do publisher")
+
+
+@pytest.mark.asyncio
+async def test_pipeline_survives_publisher_raising(async_db_session, test_settings):
+    processor = PromotionProcessor(
+        publisher=RaisingPublisher(),
+        settings=test_settings
+    )
+
+    raw_msg = RawMessage(
+        id="msg-raise",
+        source="telegram",
+        source_message_id="402",
+        source_chat_id="@promo_deals",
+        text="Notebook Dell\nPor: R$ 2500\nhttps://www.amazon.com.br/dp/B08N5WRWNW"
+    )
+
+    # process() must NOT raise; error is swallowed so the worker survives
+    promo = await processor.process(raw_msg, db_session=async_db_session)
+    assert promo is None
