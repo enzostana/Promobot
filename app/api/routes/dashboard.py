@@ -9,6 +9,7 @@ from app.api.deps import get_db
 from app.database.repositories.promotion_repo import PromotionRepository
 from app.database.repositories.source_repo import SourceRepository
 from app.database.repositories.publication_repo import PublicationRepository
+from sqlalchemy import text
 from jinja2 import Template
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
@@ -38,245 +39,360 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
     <title>PromoBot Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
+            darkMode: 'media',
             theme: {
                 extend: {
                     colors: {
-                        brand: { 500: '#2563eb', 600: '#1d4ed8', 700: '#1e40af' },
-                        status: {
-                            published: '#16a34a',
-                            filtered_out: '#f59e0b',
-                            duplicate: '#6b7280',
-                            error: '#dc2626',
-                            pending: '#3b82f6'
-                        }
+                        brand: { 50:'#eff6ff', 100:'#dbeafe', 200:'#bfdbfe', 300:'#93c5fd', 400:'#60a5fa', 500:'#3b82f6', 600:'#2563eb', 700:'#1d4ed8', 800:'#1e40af', 900:'#1e3a8a' },
+                        surface: { 50:'#f8fafc', 100:'#f1f5f9', 200:'#e2e8f0', 300:'#cbd5e1', 400:'#94a3b8', 500:'#64748b', 600:'#475569', 700:'#334155', 800:'#1e293b', 900:'#0f172a', 950:'#020617' }
                     },
-                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+                    fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] }
                 }
             }
         }
     </script>
     <style>
-        .chip { @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer select-none; }
-        .chip-default { @apply bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700; }
-        .chip-active { @apply bg-brand-500 text-white shadow-sm; }
-        .chip-active-published { @apply bg-status-published text-white shadow-sm; }
-        .chip-active-filtered_out { @apply bg-status-filtered_out text-white shadow-sm; }
-        .chip-active-duplicate { @apply bg-status-duplicate text-white shadow-sm; }
-        .chip-active-error { @apply bg-status-error text-white shadow-sm; }
-        .chip-active-pending { @apply bg-status-pending text-white shadow-sm; }
-        .table-container { @apply overflow-x-auto; }
-        table { @apply w-full min-w-max; }
-        th { @apply px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700; }
-        td { @apply px-4 py-3 text-sm text-gray-900 dark:text-gray-100 border-b border-gray-100 dark:border-gray-800; }
-        tbody tr { @apply hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors; }
-        .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
-        .skeleton { @apply animate-pulse bg-gray-200 dark:bg-gray-700 rounded; }
-        .empty-state { @apply flex flex-col items-center justify-center py-16 text-center; }
-        .empty-state svg { @apply w-16 h-16 text-gray-300 dark:text-gray-600 mb-4; }
-        .empty-state p { @apply text-gray-500 dark:text-gray-400 text-sm; }
-        .tab { @apply px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors; }
-        .tab-active { @apply bg-white dark:bg-gray-900 text-brand-600 dark:text-brand-400 border-b-2 border-brand-500; }
-        .tab-inactive { @apply text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200; }
-        .htmx-indicator { @apply opacity-0 transition-opacity; }
-        .htmx-request .htmx-indicator { @apply opacity-100; }
-        .htmx-request.htmx-indicator { @apply opacity-100; }
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+        .chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 9999px;
+            font-size: 0.8125rem; font-weight: 600;
+            transition: all 0.15s ease; cursor: pointer; user-select: none;
+            border: 1.5px solid transparent;
+        }
+        .chip-default {
+            background: #f1f5f9; color: #475569; border-color: #e2e8f0;
+        }
+        .chip-default:hover { background: #e2e8f0; color: #1e293b; }
+        @media (prefers-color-scheme: dark) {
+            .chip-default { background: #1e293b; color: #94a3b8; border-color: #334155; }
+            .chip-default:hover { background: #334155; color: #e2e8f0; }
+        }
+        .chip-active { background: #2563eb !important; color: #fff !important; border-color: #1d4ed8 !important; box-shadow: 0 1px 3px rgba(37,99,235,0.3); }
+
+        .card {
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+            overflow: hidden;
+        }
+        @media (prefers-color-scheme: dark) {
+            .card { background: #0f172a; border-color: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        }
+
+        .tab-btn {
+            padding: 10px 18px; font-size: 0.875rem; font-weight: 600;
+            border-radius: 10px 10px 0 0; transition: all 0.15s ease;
+            border-bottom: 2.5px solid transparent;
+            color: #64748b; background: transparent;
+        }
+        .tab-btn:hover { color: #334155; background: rgba(0,0,0,0.02); }
+        .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; background: #fff; }
+        @media (prefers-color-scheme: dark) {
+            .tab-btn { color: #64748b; }
+            .tab-btn:hover { color: #94a3b8; background: rgba(255,255,255,0.02); }
+            .tab-btn.active { color: #60a5fa; border-bottom-color: #3b82f6; background: #0f172a; }
+        }
+
+        .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 700px; }
+        th {
+            padding: 12px 16px; text-align: left;
+            font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;
+            text-transform: uppercase; color: #64748b;
+            background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;
+        }
+        td {
+            padding: 12px 16px; font-size: 0.8125rem; color: #1e293b;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        tbody tr { transition: background 0.1s; }
+        tbody tr:hover { background: #f8fafc; }
+        @media (prefers-color-scheme: dark) {
+            th { background: #1e293b; border-bottom-color: #334155; color: #94a3b8; }
+            td { color: #e2e8f0; border-bottom-color: #1e293b; }
+            tbody tr:hover { background: rgba(255,255,255,0.02); }
+        }
+
+        .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 9999px;
+            font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em;
+        }
+        .badge-green { background: #dcfce7; color: #15803d; }
+        .badge-amber { background: #fef3c7; color: #b45309; }
+        .badge-gray  { background: #f1f5f9; color: #475569; }
+        .badge-red   { background: #fee2e2; color: #dc2626; }
+        .badge-blue  { background: #dbeafe; color: #1d4ed8; }
+        .badge-dot {
+            width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+        }
+        .badge-green .badge-dot { background: #22c55e; }
+        .badge-amber .badge-dot { background: #f59e0b; }
+        .badge-gray  .badge-dot { background: #94a3b8; }
+        .badge-red   .badge-dot { background: #ef4444; }
+        .badge-blue  .badge-dot { background: #3b82f6; }
+        @media (prefers-color-scheme: dark) {
+            .badge-green { background: #052e16; color: #4ade80; }
+            .badge-amber { background: #451a03; color: #fbbf24; }
+            .badge-gray  { background: #1e293b; color: #94a3b8; }
+            .badge-red   { background: #450a0a; color: #f87171; }
+            .badge-blue  { background: #172554; color: #60a5fa; }
+        }
+
+        .empty-box {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 48px 16px; text-align: center;
+        }
+        .empty-box svg { width: 56px; height: 56px; color: #cbd5e1; margin-bottom: 16px; }
+        .empty-box p { color: #64748b; font-size: 0.875rem; }
+        .empty-box span { color: #94a3b8; font-size: 0.75rem; margin-top: 4px; }
+        @media (prefers-color-scheme: dark) {
+            .empty-box svg { color: #334155; }
+            .empty-box p { color: #94a3b8; }
+            .empty-box span { color: #64748b; }
+        }
+
+        .pg-btn {
+            padding: 6px 14px; font-size: 0.8125rem; font-weight: 600;
+            border-radius: 8px; border: 1.5px solid #e2e8f0;
+            color: #334155; background: #fff; transition: all 0.15s;
+        }
+        .pg-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        @media (prefers-color-scheme: dark) {
+            .pg-btn { border-color: #334155; color: #94a3b8; background: #1e293b; }
+            .pg-btn:hover { background: #334155; }
+        }
+
+        .htmx-indicator { opacity: 0; transition: opacity 0.2s; }
+        .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+
+        .fade-in { animation: fadeIn 0.2s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-950 min-h-screen font-sans">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<body class="min-h-screen" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+
         <header class="mb-8">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">PromoBot Dashboard</h1>
-                    <p class="text-gray-500 dark:text-gray-400 mt-1">Monitoramento e gestão de promoções</p>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-extrabold" style="color:#0f172a;">PromoBot</h1>
+                        <p class="text-sm font-medium" style="color:#64748b;">Dashboard de Promoções</p>
+                    </div>
                 </div>
                 <div class="flex items-center gap-3">
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                        <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                        Sistema Online
+                    <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold badge-green">
+                        <span class="badge-dot"></span>
+                        Online
                     </span>
                 </div>
             </div>
         </header>
 
         <section class="mb-6" hx-get="/dashboard/filters/all" hx-trigger="load" hx-target="#filter-chips" hx-swap="innerHTML">
-            <div id="filter-chips" class="flex flex-wrap gap-3" role="group" aria-label="Filtros rápidos">
+            <div id="filter-chips" class="flex flex-wrap gap-2 sm:gap-2.5">
                 <div class="chip chip-default" style="pointer-events:none;opacity:0.5">Carregando filtros...</div>
             </div>
         </section>
 
-        <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
-            <div class="border-b border-gray-200 dark:border-gray-800">
-                <nav class="flex gap-1 px-2" role="tablist" aria-label="Seções do dashboard">
-                    <button id="tab-promocoes" class="tab tab-active" role="tab" aria-selected="true" aria-controls="panel-promocoes"
-                        hx-get="/dashboard/partial/promocoes" hx-trigger="click" hx-target="#table-container" hx-swap="innerHTML"
-                        hx-indicator="#loading-promocoes">Promoções</button>
-                    <button id="tab-fontes" class="tab tab-inactive" role="tab" aria-selected="false" aria-controls="panel-fontes"
-                        hx-get="/dashboard/partial/fontes" hx-trigger="click" hx-target="#table-container" hx-swap="innerHTML"
-                        hx-indicator="#loading-fontes">Fontes</button>
-                    <button id="tab-publicacoes" class="tab tab-inactive" role="tab" aria-selected="false" aria-controls="panel-publicacoes"
-                        hx-get="/dashboard/partial/publicacoes" hx-trigger="click" hx-target="#table-container" hx-swap="innerHTML"
-                        hx-indicator="#loading-publicacoes">Publicações</button>
+        <div class="card">
+            <div class="border-b" style="border-color:#e2e8f0;">
+                <nav class="flex gap-0.5 px-2 pt-1" role="tablist">
+                    <button id="tab-promocoes" class="tab-btn active" role="tab" aria-selected="true"
+                        hx-get="/dashboard/partial/promocoes" hx-trigger="click" hx-target="#table-container" hx-swap="innerHTML">
+                        <span class="hidden sm:inline">Promoções</span>
+                        <span class="sm:hidden">Promos</span>
+                    </button>
+                    <button id="tab-fontes" class="tab-btn" role="tab" aria-selected="false"
+                        hx-get="/dashboard/partial/fontes" hx-trigger="click" hx-target="#table-container" hx-swap="innerHTML">
+                        Fontes
+                    </button>
+                    <button id="tab-publicacoes" class="tab-btn" role="tab" aria-selected="false"
+                        hx-get="/dashboard/partial/publicacoes" hx-trigger="click" hx-target="#table-container" hx-swap="innerHTML">
+                        Pubs
+                    </button>
                 </nav>
             </div>
-
-            <div id="table-container" class="p-4">
-                <div class="htmx-indicator flex justify-center py-12" id="loading-promocoes">
+            <div id="table-container" class="p-3 sm:p-5">
+                <div class="flex justify-center py-16">
                     <div class="flex flex-col items-center gap-3">
-                        <svg class="animate-spin h-8 w-8 text-brand-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                        <span class="text-gray-500 dark:text-gray-400 text-sm">Carregando promoções...</span>
+                        <svg class="animate-spin h-7 w-7 text-brand-600" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        <span class="text-sm font-medium" style="color:#64748b;">Carregando...</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <footer class="mt-6 text-center text-xs text-gray-400 dark:text-gray-500">
-            PromoBot v1.0.0 &middot; <a href="/docs" class="underline hover:text-brand-500" target="_blank">Documentação da API</a>
+        <footer class="mt-8 text-center">
+            <a href="/docs" class="text-xs font-medium" style="color:#94a3b8;" target="_blank">API Docs &rarr;</a>
         </footer>
     </div>
 
     <script>
-        document.body.addEventListener('htmx:afterSwap', function(evt) {
-            if (evt.detail.target.id === 'table-container') {
-                updateActiveTab(evt.detail.target.dataset.tab);
-            }
-        });
-
-        function updateActiveTab(activeTab) {
-            document.querySelectorAll('[role="tab"]').forEach(btn => {
-                const isActive = btn.id === 'tab-' + activeTab;
-                btn.classList.toggle('tab-active', isActive);
-                btn.classList.toggle('tab-inactive', !isActive);
-                btn.setAttribute('aria-selected', isActive);
-            });
-        }
-
-        document.body.addEventListener('htmx:beforeRequest', function(evt) {
-            if (evt.detail.target.closest('.chip')) {
-                evt.detail.target.closest('.chip').classList.add('htmx-request');
-            }
-        });
-
-        document.body.addEventListener('htmx:afterRequest', function(evt) {
-            if (evt.detail.target.closest('.chip')) {
-                evt.detail.target.closest('.chip').classList.remove('htmx-request');
+        document.body.addEventListener('htmx:afterSwap', function(e) {
+            if (e.detail.target.id === 'table-container') {
+                e.detail.target.classList.add('fade-in');
+                document.querySelectorAll('[role="tab"]').forEach(b => {
+                    var active = b.id === 'tab-' + e.detail.target.dataset.tab;
+                    b.classList.toggle('active', active);
+                    b.setAttribute('aria-selected', active);
+                });
             }
         });
     </script>
 </body>
 </html>'''
 
-DASHBOARD_FILTERS_HTML = '''<div class="flex flex-wrap gap-3" role="group" aria-label="Filtros rápidos" id="filter-chips">
-    <div class="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full">
-        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Status</span>
-        <span class="w-px h-4 bg-gray-300 dark:bg-gray-600"></span>
+DASHBOARD_FILTERS_HTML = '''<div class="flex flex-col gap-3" id="filter-chips">
+    <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-bold uppercase tracking-wider" style="color:#94a3b8;">Período</span>
+        <div class="h-4 w-px" style="background:#e2e8f0;"></div>
+        <button class="chip chip-default" data-filter="period" data-value="24h"
+            hx-get="/dashboard/partial/promocoes?period=24h" hx-target="#table-container" hx-swap="innerHTML">24h</button>
+        <button class="chip chip-default" data-filter="period" data-value="7d"
+            hx-get="/dashboard/partial/promocoes?period=7d" hx-target="#table-container" hx-swap="innerHTML">7 dias</button>
+        <button class="chip chip-default" data-filter="period" data-value="30d"
+            hx-get="/dashboard/partial/promocoes?period=30d" hx-target="#table-container" hx-swap="innerHTML">30 dias</button>
+        <button class="chip chip-default" data-filter="period" data-value="90d"
+            hx-get="/dashboard/partial/promocoes?period=90d" hx-target="#table-container" hx-swap="innerHTML">90 dias</button>
     </div>
-    {% for s in statuses %}
-    <button class="chip chip-default" data-filter="status" data-value="{{ s }}"
-        hx-get="/dashboard/partial/promocoes?status={{ s }}" hx-target="#table-container" hx-swap="innerHTML"
-        hx-indicator="#loading-promocoes" hx-vals='js:{page: 1}'>
-        {{ s.replace('_', ' ').title() }}
-    </button>
-    {% endfor %}
-
-    <div class="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full">
-        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Loja</span>
-        <span class="w-px h-4 bg-gray-300 dark:bg-gray-600"></span>
+    <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-bold uppercase tracking-wider" style="color:#94a3b8;">Status</span>
+        <div class="h-4 w-px" style="background:#e2e8f0;"></div>
+        {% for s in statuses %}
+        <button class="chip chip-default" data-filter="status" data-value="{{ s }}"
+            hx-get="/dashboard/partial/promocoes?status={{ s }}" hx-target="#table-container" hx-swap="innerHTML">
+            {{ s.replace('_', ' ').title() }}
+        </button>
+        {% endfor %}
+        {% if not statuses %}
+        <span class="text-xs" style="color:#94a3b8;">Nenhum</span>
+        {% endif %}
     </div>
-    {% for store in stores %}
-    <button class="chip chip-default" data-filter="store" data-value="{{ store }}"
-        hx-get="/dashboard/partial/promocoes?store={{ store }}" hx-target="#table-container" hx-swap="innerHTML"
-        hx-indicator="#loading-promocoes" hx-vals='js:{page: 1}'>
-        {{ store.title() }}
-    </button>
-    {% endfor %}
-
-    <div class="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full">
-        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Categoria</span>
-        <span class="w-px h-4 bg-gray-300 dark:bg-gray-600"></span>
+    <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-bold uppercase tracking-wider" style="color:#94a3b8;">Loja</span>
+        <div class="h-4 w-px" style="background:#e2e8f0;"></div>
+        {% for store in stores %}
+        <button class="chip chip-default" data-filter="store" data-value="{{ store }}"
+            hx-get="/dashboard/partial/promocoes?store={{ store }}" hx-target="#table-container" hx-swap="innerHTML">
+            {{ store.title() }}
+        </button>
+        {% endfor %}
+        {% if not stores %}
+        <span class="text-xs" style="color:#94a3b8;">Nenhuma</span>
+        {% endif %}
     </div>
-    {% for cat in categories %}
-    <button class="chip chip-default" data-filter="category" data-value="{{ cat }}"
-        hx-get="/dashboard/partial/promocoes?category={{ cat }}" hx-target="#table-container" hx-swap="innerHTML"
-        hx-indicator="#loading-promocoes" hx-vals='js:{page: 1}'>
-        {{ cat.replace('_', ' ').title() }}
-    </button>
-    {% endfor %}
-
-    <div class="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full">
-        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Período</span>
-        <span class="w-px h-4 bg-gray-300 dark:bg-gray-600"></span>
+    <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-bold uppercase tracking-wider" style="color:#94a3b8;">Categoria</span>
+        <div class="h-4 w-px" style="background:#e2e8f0;"></div>
+        {% for cat in categories %}
+        <button class="chip chip-default" data-filter="category" data-value="{{ cat }}"
+            hx-get="/dashboard/partial/promocoes?category={{ cat }}" hx-target="#table-container" hx-swap="innerHTML">
+            {{ cat.replace('_', ' ').title() }}
+        </button>
+        {% endfor %}
+        {% if not categories %}
+        <span class="text-xs" style="color:#94a3b8;">Nenhuma</span>
+        {% endif %}
     </div>
-    <button class="chip chip-default" data-filter="period" data-value="24h"
-        hx-get="/dashboard/partial/promocoes?period=24h" hx-target="#table-container" hx-swap="innerHTML"
-        hx-indicator="#loading-promocoes" hx-vals='js:{page: 1}'>24h</button>
-    <button class="chip chip-default" data-filter="period" data-value="7d"
-        hx-get="/dashboard/partial/promocoes?period=7d" hx-target="#table-container" hx-swap="innerHTML"
-        hx-indicator="#loading-promocoes" hx-vals='js:{page: 1}'>7 dias</button>
-    <button class="chip chip-default" data-filter="period" data-value="30d"
-        hx-get="/dashboard/partial/promocoes?period=30d" hx-target="#table-container" hx-swap="innerHTML"
-        hx-indicator="#loading-promocoes" hx-vals='js:{page: 1}'>30 dias</button>
-    <button class="chip chip-default" data-filter="period" data-value="90d"
-        hx-get="/dashboard/partial/promocoes?period=90d" hx-target="#table-container" hx-swap="innerHTML"
-        hx-indicator="#loading-promocoes" hx-vals='js:{page: 1}'>90 dias</button>
-
-    <button class="chip chip-default ml-auto" 
-        hx-get="/dashboard/partial/promocoes" hx-target="#table-container" hx-swap="innerHTML"
-        hx-indicator="#loading-promocoes" hx-vals='js:{page: 1}'>
-        Limpar tudo
-    </button>
+    <div class="flex justify-end mt-1">
+        <button class="chip chip-default" style="font-size:0.75rem;"
+            hx-get="/dashboard/partial/promocoes" hx-target="#table-container" hx-swap="innerHTML">
+            Limpar filtros
+        </button>
+    </div>
 </div>'''
 
 PROMOCOES_PARTIAL = '''<div data-tab="promocoes">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Promoções</h2>
-        <div class="htmx-indicator flex items-center gap-2 text-sm text-gray-500" id="loading-promocoes">
-            <svg class="animate-spin h-4 w-4 text-brand-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-            <span>Carregando...</span>
-        </div>
-    </div>
-
-    <div class="table-container">
+    <div class="tbl-wrap">
         <table>
             <thead>
                 <tr>
                     <th>ID</th>
                     <th>Produto</th>
                     <th>Loja</th>
-                    <th>Preço Original</th>
-                    <th>Preço Promo</th>
-                    <th>Desconto</th>
+                    <th>Preço</th>
+                    <th>Promo</th>
+                    <th>Desc.</th>
                     <th>Categoria</th>
                     <th>Status</th>
-                    <th>Criado em</th>
+                    <th>Data</th>
                 </tr>
             </thead>
-            <tbody id="promo-tbody">
+            <tbody>
                 {% if promotions.items %}
                     {% for p in promotions.items %}
                     <tr>
-                        <td class="font-mono text-gray-500 dark:text-gray-400">{{ p.id }}</td>
-                        <td class="max-w-xs truncate" title="{{ p.product_name }}">{{ p.product_name }}</td>
-                        <td>{{ p.store or '<span class="text-gray-400">—</span>' | safe }}</td>
-                        <td>{{ 'R$ ' + ("%.2f"|format(p.original_price)) if p.original_price is not none else '—' }}</td>
-                        <td class="font-semibold text-brand-600 dark:text-brand-400">{{ 'R$ ' + ("%.2f"|format(p.sale_price)) if p.sale_price is not none else '—' }}</td>
-                        <td>{{ ("%.1f%%"|format(p.discount_percentage)) if p.discount_percentage is not none else '—' }}</td>
-                        <td>{{ p.category or '<span class="text-gray-400">—</span>' | safe }}</td>
-                        <td>
-                            <span class="badge" style="background-color: {{ status_color(p.status) }}20; color: {{ status_color(p.status) }};">{{ p.status.replace('_', ' ').title() }}</span>
+                        <td class="font-semibold" style="color:#94a3b8;">#{{ p.id }}</td>
+                        <td style="color:#0f172a; font-weight:500;">
+                            <span class="truncate block max-w-[200px] sm:max-w-[300px]" title="{{ p.product_name }}">{{ p.product_name }}</span>
                         </td>
-                        <td class="font-mono text-gray-500 dark:text-gray-400">{{ format_date(p.created_at) }}</td>
+                        <td>
+                            {% if p.store %}
+                            <span class="badge badge-blue"><span class="badge-dot"></span>{{ p.store.title() }}</span>
+                            {% else %}
+                            <span style="color:#cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="color:#64748b;">{{ 'R$ ' + ("%.2f"|format(p.original_price)) if p.original_price is not none else '—' }}</td>
+                        <td>
+                            {% if p.sale_price is not none %}
+                            <span class="font-bold" style="color:#16a34a;">R$ {{ "%.2f"|format(p.sale_price) }}</span>
+                            {% else %}
+                            <span style="color:#cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if p.discount_percentage is not none %}
+                            <span class="badge badge-green"><span class="badge-dot"></span>{{ "%.0f"|format(p.discount_percentage) }}%</span>
+                            {% else %}
+                            <span style="color:#cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if p.category %}
+                            <span style="color:#64748b; font-weight:500;">{{ p.category.replace('_', ' ').title() }}</span>
+                            {% else %}
+                            <span style="color:#cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if p.status == 'published' %}
+                            <span class="badge badge-green"><span class="badge-dot"></span>Publicado</span>
+                            {% elif p.status == 'filtered_out' %}
+                            <span class="badge badge-amber"><span class="badge-dot"></span>Filtrado</span>
+                            {% elif p.status == 'duplicate' %}
+                            <span class="badge badge-gray"><span class="badge-dot"></span>Duplicado</span>
+                            {% elif p.status == 'error' %}
+                            <span class="badge badge-red"><span class="badge-dot"></span>Erro</span>
+                            {% elif p.status == 'pending' %}
+                            <span class="badge badge-blue"><span class="badge-dot"></span>Pendente</span>
+                            {% else %}
+                            <span class="badge badge-gray">{{ p.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="color:#94a3b8; font-size:0.75rem; white-space:nowrap;">{{ format_date(p.created_at) }}</td>
                     </tr>
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="9" class="py-12">
-                            <div class="empty-state">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <td colspan="9">
+                            <div class="empty-box">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                 <p>Nenhuma promoção encontrada</p>
+                                <span>Tente ampliar o período ou limpar os filtros</span>
                             </div>
                         </td>
                     </tr>
@@ -284,40 +400,27 @@ PROMOCOES_PARTIAL = '''<div data-tab="promocoes">
             </tbody>
         </table>
     </div>
-
     {% if promotions.total_pages > 1 %}
-    <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-            Página {{ promotions.page }} de {{ promotions.total_pages }} — {{ promotions.total }} promoções
+    <div class="flex flex-col sm:flex-row items-center justify-between mt-4 pt-4 gap-3" style="border-top:1px solid #f1f5f9;">
+        <p class="text-xs font-medium" style="color:#94a3b8;">
+            Página {{ promotions.page }} de {{ promotions.total_pages }} &middot; {{ promotions.total }} promoções
         </p>
-        <nav class="flex gap-1" aria-label="Paginação">
+        <div class="flex gap-2">
             {% if promotions.page > 1 %}
-            <button class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                hx-get="/dashboard/partial/promocoes?page={{ promotions.page - 1 }}" hx-target="#table-container" hx-swap="innerHTML">
-                Anterior
-            </button>
+            <button class="pg-btn"
+                hx-get="/dashboard/partial/promocoes?page={{ promotions.page - 1 }}" hx-target="#table-container" hx-swap="innerHTML">&larr; Anterior</button>
             {% endif %}
             {% if promotions.page < promotions.total_pages %}
-            <button class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                hx-get="/dashboard/partial/promocoes?page={{ promotions.page + 1 }}" hx-target="#table-container" hx-swap="innerHTML">
-                Próxima
-            </button>
+            <button class="pg-btn"
+                hx-get="/dashboard/partial/promocoes?page={{ promotions.page + 1 }}" hx-target="#table-container" hx-swap="innerHTML">Próxima &rarr;</button>
             {% endif %}
-        </nav>
+        </div>
     </div>
     {% endif %}
 </div>'''
 
 FONTES_PARTIAL = '''<div data-tab="fontes">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Fontes</h2>
-        <div class="htmx-indicator flex items-center gap-2 text-sm text-gray-500" id="loading-fontes">
-            <svg class="animate-spin h-4 w-4 text-brand-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-            <span>Carregando...</span>
-        </div>
-    </div>
-
-    <div class="table-container">
+    <div class="tbl-wrap">
         <table>
             <thead>
                 <tr>
@@ -333,30 +436,27 @@ FONTES_PARTIAL = '''<div data-tab="fontes">
                 {% if sources.items %}
                     {% for s in sources.items %}
                     <tr>
-                        <td class="font-mono text-gray-500 dark:text-gray-400">{{ s.id }}</td>
-                        <td><span class="badge bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">{{ s.platform }}</span></td>
-                        <td class="font-mono text-sm">{{ s.chat_id }}</td>
-                        <td>{{ s.name or '<span class="text-gray-400">—</span>' | safe }}</td>
+                        <td class="font-semibold" style="color:#94a3b8;">#{{ s.id }}</td>
+                        <td><span class="badge badge-blue"><span class="badge-dot"></span>{{ s.platform }}</span></td>
+                        <td style="font-family:monospace; font-size:0.8rem; color:#475569;">{{ s.chat_id }}</td>
+                        <td style="font-weight:500; color:#0f172a;">{{ s.name or '—' }}</td>
                         <td>
                             {% if s.is_active %}
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Ativa
-                            </span>
+                            <span class="badge badge-green"><span class="badge-dot"></span>Ativa</span>
                             {% else %}
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                                <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Inativa
-                            </span>
+                            <span class="badge badge-gray"><span class="badge-dot"></span>Inativa</span>
                             {% endif %}
                         </td>
-                        <td class="font-mono text-gray-500 dark:text-gray-400">{{ format_date(s.created_at) }}</td>
+                        <td style="color:#94a3b8; font-size:0.75rem; white-space:nowrap;">{{ format_date(s.created_at) }}</td>
                     </tr>
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="6" class="py-12">
-                            <div class="empty-state">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        <td colspan="6">
+                            <div class="empty-box">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                 <p>Nenhuma fonte configurada</p>
+                                <span>Adicione canais de origem no banco de dados</span>
                             </div>
                         </td>
                     </tr>
@@ -364,73 +464,75 @@ FONTES_PARTIAL = '''<div data-tab="fontes">
             </tbody>
         </table>
     </div>
-
     {% if sources.total_pages > 1 %}
-    <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-            Página {{ sources.page }} de {{ sources.total_pages }} — {{ sources.total }} fontes
+    <div class="flex flex-col sm:flex-row items-center justify-between mt-4 pt-4 gap-3" style="border-top:1px solid #f1f5f9;">
+        <p class="text-xs font-medium" style="color:#94a3b8;">
+            Página {{ sources.page }} de {{ sources.total_pages }} &middot; {{ sources.total }} fontes
         </p>
-        <nav class="flex gap-1" aria-label="Paginação">
+        <div class="flex gap-2">
             {% if sources.page > 1 %}
-            <button class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                hx-get="/dashboard/partial/fontes?page={{ sources.page - 1 }}" hx-target="#table-container" hx-swap="innerHTML">
-                Anterior
-            </button>
+            <button class="pg-btn"
+                hx-get="/dashboard/partial/fontes?page={{ sources.page - 1 }}" hx-target="#table-container" hx-swap="innerHTML">&larr; Anterior</button>
             {% endif %}
             {% if sources.page < sources.total_pages %}
-            <button class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                hx-get="/dashboard/partial/fontes?page={{ sources.page + 1 }}" hx-target="#table-container" hx-swap="innerHTML">
-                Próxima
-            </button>
+            <button class="pg-btn"
+                hx-get="/dashboard/partial/fontes?page={{ sources.page + 1 }}" hx-target="#table-container" hx-swap="innerHTML">Próxima &rarr;</button>
             {% endif %}
-        </nav>
+        </div>
     </div>
     {% endif %}
 </div>'''
 
 PUBLICACOES_PARTIAL = '''<div data-tab="publicacoes">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Publicações</h2>
-        <div class="htmx-indicator flex items-center gap-2 text-sm text-gray-500" id="loading-publicacoes">
-            <svg class="animate-spin h-4 w-4 text-brand-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-            <span>Carregando...</span>
-        </div>
-    </div>
-
-    <div class="table-container">
+    <div class="tbl-wrap">
         <table>
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Promo ID</th>
+                    <th>Promo</th>
                     <th>Plataforma</th>
                     <th>Chat Alvo</th>
                     <th>Status</th>
                     <th>Erro</th>
-                    <th>Publicado em</th>
+                    <th>Publicado</th>
                 </tr>
             </thead>
             <tbody>
                 {% if publications.items %}
                     {% for p in publications.items %}
                     <tr>
-                        <td class="font-mono text-gray-500 dark:text-gray-400">{{ p.id }}</td>
-                        <td class="font-mono">{{ p.promotion_id }}</td>
-                        <td><span class="badge bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">{{ p.platform }}</span></td>
-                        <td class="font-mono text-sm">{{ p.target_chat_id }}</td>
+                        <td class="font-semibold" style="color:#94a3b8;">#{{ p.id }}</td>
+                        <td class="font-semibold" style="color:#2563eb;">#{{ p.promotion_id }}</td>
+                        <td><span class="badge badge-blue"><span class="badge-dot"></span>{{ p.platform }}</span></td>
+                        <td style="font-family:monospace; font-size:0.8rem; color:#475569;">{{ p.target_chat_id }}</td>
                         <td>
-                            <span class="badge" style="background-color: {{ pub_status_color(p.status) }}20; color: {{ pub_status_color(p.status) }};">{{ p.status.replace('_', ' ').title() }}</span>
+                            {% if p.status == 'published' %}
+                            <span class="badge badge-green"><span class="badge-dot"></span>Publicado</span>
+                            {% elif p.status == 'error' or p.status == 'failed' %}
+                            <span class="badge badge-red"><span class="badge-dot"></span>Falhou</span>
+                            {% elif p.status == 'pending' %}
+                            <span class="badge badge-blue"><span class="badge-dot"></span>Pendente</span>
+                            {% else %}
+                            <span class="badge badge-gray">{{ p.status }}</span>
+                            {% endif %}
                         </td>
-                        <td class="max-w-xs truncate text-red-600 dark:text-red-400">{{ p.error_message or '<span class="text-gray-400">—</span>' | safe }}</td>
-                        <td class="font-mono text-gray-500 dark:text-gray-400">{{ format_date(p.published_at) }}</td>
+                        <td style="max-width:180px;">
+                            {% if p.error_message %}
+                            <span class="truncate block font-medium" style="color:#dc2626; font-size:0.75rem;" title="{{ p.error_message }}">{{ p.error_message }}</span>
+                            {% else %}
+                            <span style="color:#cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="color:#94a3b8; font-size:0.75rem; white-space:nowrap;">{{ format_date(p.published_at) }}</td>
                     </tr>
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="7" class="py-12">
-                            <div class="empty-state">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                        <td colspan="7">
+                            <div class="empty-box">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
                                 <p>Nenhuma publicação realizada</p>
+                                <span>As publicações aparecerão aqui quando forem enviadas</span>
                             </div>
                         </td>
                     </tr>
@@ -438,52 +540,24 @@ PUBLICACOES_PARTIAL = '''<div data-tab="publicacoes">
             </tbody>
         </table>
     </div>
-
     {% if publications.total_pages > 1 %}
-    <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-            Página {{ publications.page }} de {{ publications.total_pages }} — {{ publications.total }} publicações
+    <div class="flex flex-col sm:flex-row items-center justify-between mt-4 pt-4 gap-3" style="border-top:1px solid #f1f5f9;">
+        <p class="text-xs font-medium" style="color:#94a3b8;">
+            Página {{ publications.page }} de {{ publications.total_pages }} &middot; {{ publications.total }} publicações
         </p>
-        <nav class="flex gap-1" aria-label="Paginação">
+        <div class="flex gap-2">
             {% if publications.page > 1 %}
-            <button class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                hx-get="/dashboard/partial/publicacoes?page={{ publications.page - 1 }}" hx-target="#table-container" hx-swap="innerHTML">
-                Anterior
-            </button>
+            <button class="pg-btn"
+                hx-get="/dashboard/partial/publicacoes?page={{ publications.page - 1 }}" hx-target="#table-container" hx-swap="innerHTML">&larr; Anterior</button>
             {% endif %}
             {% if publications.page < publications.total_pages %}
-            <button class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                hx-get="/dashboard/partial/publicacoes?page={{ publications.page + 1 }}" hx-target="#table-container" hx-swap="innerHTML">
-                Próxima
-            </button>
+            <button class="pg-btn"
+                hx-get="/dashboard/partial/publicacoes?page={{ publications.page + 1 }}" hx-target="#table-container" hx-swap="innerHTML">Próxima &rarr;</button>
             {% endif %}
-        </nav>
+        </div>
     </div>
     {% endif %}
 </div>'''
-
-STATUS_COLORS = {
-    'published': '#16a34a',
-    'filtered_out': '#f59e0b',
-    'duplicate': '#6b7280',
-    'error': '#dc2626',
-    'pending': '#3b82f6'
-}
-
-PUB_STATUS_COLORS = {
-    'published': '#16a34a',
-    'failed': '#dc2626',
-    'error': '#dc2626',
-    'pending': '#3b82f6'
-}
-
-
-def status_color(status: str) -> str:
-    return STATUS_COLORS.get(status, '#6b7280')
-
-
-def pub_status_color(status: str) -> str:
-    return PUB_STATUS_COLORS.get(status, '#6b7280')
 
 
 def format_date(dt) -> str:
@@ -505,17 +579,17 @@ async def dashboard_home():
 @router.get("/filters/all", response_class=HTMLResponse, dependencies=[Depends(verify_dashboard_credentials)])
 async def dashboard_filters(db=Depends(get_db)):
     stores_result = await db.execute(
-        "SELECT DISTINCT store FROM promotions WHERE store IS NOT NULL ORDER BY store"
+        text("SELECT DISTINCT store FROM promotions WHERE store IS NOT NULL ORDER BY store")
     )
     stores = [row[0] for row in stores_result.fetchall() if row[0]]
 
     statuses_result = await db.execute(
-        "SELECT DISTINCT status FROM promotions ORDER BY status"
+        text("SELECT DISTINCT status FROM promotions ORDER BY status")
     )
     statuses = [row[0] for row in statuses_result.fetchall()]
 
     categories_result = await db.execute(
-        "SELECT DISTINCT category FROM promotions WHERE category IS NOT NULL ORDER BY category"
+        text("SELECT DISTINCT category FROM promotions WHERE category IS NOT NULL ORDER BY category")
     )
     categories = [row[0] for row in categories_result.fetchall() if row[0]]
 
@@ -532,7 +606,7 @@ class PaginatedResult:
         self.total_pages = total_pages
 
 
-def parse_datetime(val: str | None):
+def parse_datetime(val):
     if not val:
         return None
     try:
@@ -543,105 +617,61 @@ def parse_datetime(val: str | None):
 
 @router.get("/partial/promocoes", response_class=HTMLResponse, dependencies=[Depends(verify_dashboard_credentials)])
 async def partial_promocoes(
-    page: int = 1,
-    page_size: int = 20,
-    status: str = None,
-    store: str = None,
-    category: str = None,
+    page: int = 1, page_size: int = 20,
+    status: str = None, store: str = None, category: str = None,
     period: str = None,
-    created_at__gte: str = None,
-    created_at__lte: str = None,
+    created_at__gte: str = None, created_at__lte: str = None,
     db=Depends(get_db)
 ):
     if period:
         now = datetime.now(timezone.utc)
-        if period == '24h':
-            created_at__gte = (now - timedelta(hours=24)).isoformat()
-        elif period == '7d':
-            created_at__gte = (now - timedelta(days=7)).isoformat()
-        elif period == '30d':
-            created_at__gte = (now - timedelta(days=30)).isoformat()
-        elif period == '90d':
-            created_at__gte = (now - timedelta(days=90)).isoformat()
+        deltas = {'24h': timedelta(hours=24), '7d': timedelta(days=7), '30d': timedelta(days=30), '90d': timedelta(days=90)}
+        if period in deltas:
+            created_at__gte = (now - deltas[period]).isoformat()
 
     repo = PromotionRepository(db)
     offset = (page - 1) * page_size
+    gte = parse_datetime(created_at__gte)
+    lte = parse_datetime(created_at__lte)
 
-    models = await repo.list_promotions(
-        limit=page_size,
-        offset=offset,
-        status=status,
-        store=store,
-        category=category,
-        created_at__gte=parse_datetime(created_at__gte),
-        created_at__lte=parse_datetime(created_at__lte)
-    )
-
-    total = await repo.count_promotions(
-        status=status,
-        store=store,
-        category=category,
-        created_at__gte=parse_datetime(created_at__gte),
-        created_at__lte=parse_datetime(created_at__lte)
-    )
-
+    models = await repo.list_promotions(limit=page_size, offset=offset, status=status, store=store, category=category, created_at__gte=gte, created_at__lte=lte)
+    total = await repo.count_promotions(status=status, store=store, category=category, created_at__gte=gte, created_at__lte=lte)
     total_pages = (total + page_size - 1) // page_size
 
     result = PaginatedResult(models, total, page, page_size, total_pages)
-
     template = Template(PROMOCOES_PARTIAL)
-    return HTMLResponse(content=template.render(
-        promotions=result,
-        status_color=status_color,
-        format_date=format_date
-    ))
+    return HTMLResponse(content=template.render(promotions=result, format_date=format_date))
 
 
 @router.get("/partial/fontes", response_class=HTMLResponse, dependencies=[Depends(verify_dashboard_credentials)])
 async def partial_fontes(
-    page: int = 1,
-    page_size: int = 20,
+    page: int = 1, page_size: int = 20,
     active_only: bool = False,
     db=Depends(get_db)
 ):
     repo = SourceRepository(db)
     offset = (page - 1) * page_size
-
     models = await repo.list_sources(active_only=active_only, limit=page_size, offset=offset)
     total = await repo.count_sources(active_only=active_only)
-
     total_pages = (total + page_size - 1) // page_size
 
     result = PaginatedResult(models, total, page, page_size, total_pages)
-
     template = Template(FONTES_PARTIAL)
-    return HTMLResponse(content=template.render(
-        sources=result,
-        format_date=format_date
-    ))
+    return HTMLResponse(content=template.render(sources=result, format_date=format_date))
 
 
 @router.get("/partial/publicacoes", response_class=HTMLResponse, dependencies=[Depends(verify_dashboard_credentials)])
 async def partial_publicacoes(
-    page: int = 1,
-    page_size: int = 20,
-    platform: str = None,
-    status: str = None,
+    page: int = 1, page_size: int = 20,
+    platform: str = None, status: str = None,
     db=Depends(get_db)
 ):
     repo = PublicationRepository(db)
     offset = (page - 1) * page_size
-
     models = await repo.list_publications(limit=page_size, offset=offset, platform=platform, status=status)
     total = await repo.count_publications(platform=platform, status=status)
-
     total_pages = (total + page_size - 1) // page_size
 
     result = PaginatedResult(models, total, page, page_size, total_pages)
-
     template = Template(PUBLICACOES_PARTIAL)
-    return HTMLResponse(content=template.render(
-        publications=result,
-        pub_status_color=pub_status_color,
-        format_date=format_date
-    ))
+    return HTMLResponse(content=template.render(publications=result, format_date=format_date))
