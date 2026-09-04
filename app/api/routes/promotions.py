@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
@@ -55,17 +55,60 @@ class PromotionDetailOut(PromotionOut):
     publications: List[PublicationOut] = []
 
 
-@router.get("", response_model=List[PromotionOut])
+class PaginatedPromotionOut(BaseModel):
+    items: List[PromotionOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+@router.get("", response_model=PaginatedPromotionOut)
 async def list_promotions(
-    limit: int = Query(50, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-    status: Optional[str] = Query(None, description="Filtrar por status (e.g. published, duplicate, filtered_out)"),
-    store: Optional[str] = Query(None, description="Filtrar por loja (e.g. amazon, mercadolivre)"),
+    response: Response,
+    page: int = Query(1, ge=1, description="Número da página"),
+    page_size: int = Query(20, ge=1, le=100, description="Itens por página"),
+    status: Optional[str] = Query(None, description="Filtrar por status"),
+    store: Optional[str] = Query(None, description="Filtrar por loja"),
+    category: Optional[str] = Query(None, description="Filtrar por categoria"),
+    created_at__gte: Optional[datetime] = Query(None, description="Data inicial (ISO 8601)"),
+    created_at__lte: Optional[datetime] = Query(None, description="Data final (ISO 8601)"),
     db: AsyncSession = Depends(get_db),
 ):
     repo = PromotionRepository(db)
-    models = await repo.list_promotions(limit=limit, offset=offset, status=status, store=store)
-    return models
+    offset = (page - 1) * page_size
+    
+    models = await repo.list_promotions(
+        limit=page_size,
+        offset=offset,
+        status=status,
+        store=store,
+        category=category,
+        created_at__gte=created_at__gte,
+        created_at__lte=created_at__lte
+    )
+    
+    total = await repo.count_promotions(
+        status=status,
+        store=store,
+        category=category,
+        created_at__gte=created_at__gte,
+        created_at__lte=created_at__lte
+    )
+    
+    total_pages = (total + page_size - 1) // page_size
+    
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["X-Total-Pages"] = str(total_pages)
+    response.headers["X-Current-Page"] = str(page)
+    
+    return PaginatedPromotionOut(
+        items=models,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages
+    )
 
 
 @router.get("/{promotion_id}", response_model=PromotionDetailOut)

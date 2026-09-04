@@ -68,15 +68,47 @@ class PromotionRepository:
         limit: int = 50,
         offset: int = 0,
         status: Optional[str] = None,
-        store: Optional[str] = None
+        store: Optional[str] = None,
+        category: Optional[str] = None,
+        created_at__gte: Optional[datetime] = None,
+        created_at__lte: Optional[datetime] = None
     ) -> List[PromotionModel]:
         stmt = select(PromotionModel).order_by(desc(PromotionModel.created_at)).limit(limit).offset(offset)
         if status:
             stmt = stmt.where(PromotionModel.status == status)
         if store:
             stmt = stmt.where(PromotionModel.store == store)
+        if category:
+            stmt = stmt.where(PromotionModel.category == category)
+        if created_at__gte:
+            stmt = stmt.where(PromotionModel.created_at >= created_at__gte)
+        if created_at__lte:
+            stmt = stmt.where(PromotionModel.created_at <= created_at__lte)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count_promotions(
+        self,
+        status: Optional[str] = None,
+        store: Optional[str] = None,
+        category: Optional[str] = None,
+        created_at__gte: Optional[datetime] = None,
+        created_at__lte: Optional[datetime] = None
+    ) -> int:
+        from sqlalchemy import func
+        stmt = select(func.count(PromotionModel.id))
+        if status:
+            stmt = stmt.where(PromotionModel.status == status)
+        if store:
+            stmt = stmt.where(PromotionModel.store == store)
+        if category:
+            stmt = stmt.where(PromotionModel.category == category)
+        if created_at__gte:
+            stmt = stmt.where(PromotionModel.created_at >= created_at__gte)
+        if created_at__lte:
+            stmt = stmt.where(PromotionModel.created_at <= created_at__lte)
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
 
     async def update_status(
         self,

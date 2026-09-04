@@ -1,5 +1,5 @@
 from typing import List, Optional
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import SourceModel
 
@@ -31,9 +31,21 @@ class SourceRepository:
             await self.session.flush()
         return source
 
-    async def list_sources(self, active_only: bool = False) -> List[SourceModel]:
-        stmt = select(SourceModel)
+    async def list_sources(
+        self,
+        active_only: bool = False,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[SourceModel]:
+        stmt = select(SourceModel).order_by(SourceModel.created_at.desc()).limit(limit).offset(offset)
         if active_only:
             stmt = stmt.where(SourceModel.is_active == True)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count_sources(self, active_only: bool = False) -> int:
+        stmt = select(func.count(SourceModel.id))
+        if active_only:
+            stmt = stmt.where(SourceModel.is_active == True)
+        result = await self.session.execute(stmt)
+        return result.scalar_one()

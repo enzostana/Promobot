@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
@@ -21,10 +21,38 @@ class SourceOut(BaseModel):
     created_at: datetime
 
 
-@router.get("", response_model=List[SourceOut])
+class PaginatedSourceOut(BaseModel):
+    items: List[SourceOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+@router.get("", response_model=PaginatedSourceOut)
 async def list_sources(
-    active_only: bool = False,
+    response: Response,
+    page: int = Query(1, ge=1, description="Número da página"),
+    page_size: int = Query(20, ge=1, le=100, description="Itens por página"),
+    active_only: bool = Query(False, description="Apenas fontes ativas"),
     db: AsyncSession = Depends(get_db),
 ):
     repo = SourceRepository(db)
-    return await repo.list_sources(active_only=active_only)
+    offset = (page - 1) * page_size
+    
+    models = await repo.list_sources(active_only=active_only, limit=page_size, offset=offset)
+    total = await repo.count_sources(active_only=active_only)
+    
+    total_pages = (total + page_size - 1) // page_size
+    
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["X-Total-Pages"] = str(total_pages)
+    response.headers["X-Current-Page"] = str(page)
+    
+    return PaginatedSourceOut(
+        items=models,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages
+    )

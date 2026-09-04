@@ -55,13 +55,16 @@ async def test_api_endpoints(async_db_session):
         health_data = res_health.json()
         assert "status" in health_data
 
-        # 2. Test /promotions list
+        # 2. Test /promotions list (paginated)
         res_promos = await client.get("/promotions")
         assert res_promos.status_code == 200
         promos_data = res_promos.json()
-        assert len(promos_data) == 1
-        assert promos_data[0]["product_name"] == "Smart TV Samsung 50 4K"
-        assert promos_data[0]["store"] == "amazon"
+        assert "items" in promos_data
+        assert len(promos_data["items"]) == 1
+        assert promos_data["items"][0]["product_name"] == "Smart TV Samsung 50 4K"
+        assert promos_data["items"][0]["store"] == "amazon"
+        assert promos_data["total"] == 1
+        assert promos_data["page"] == 1
 
         # 3. Test /promotions/{id} detail
         res_detail = await client.get(f"/promotions/{saved_promo.id}")
@@ -71,16 +74,20 @@ async def test_api_endpoints(async_db_session):
         assert len(detail_data["sources"]) == 1
         assert len(detail_data["publications"]) == 1
 
-        # 4. Test /sources
+        # 4. Test /sources (paginated)
         res_sources = await client.get("/sources")
         assert res_sources.status_code == 200
         sources_data = res_sources.json()
-        assert len(sources_data) == 1
-        assert sources_data[0]["chat_id"] == "@promo_deals"
+        assert "items" in sources_data
+        assert len(sources_data["items"]) == 1
+        assert sources_data["items"][0]["chat_id"] == "@promo_deals"
+        assert sources_data["total"] == 1
 
-        # 5. Test /publications
+        # 5. Test /publications (paginated)
         res_pubs = await client.get("/publications")
         assert res_pubs.status_code == 200
         pubs_data = res_pubs.json()
-        assert len(pubs_data) == 1
-        assert pubs_data[0]["target_chat_id"] == "@meu_canal"
+        assert "items" in pubs_data
+        assert len(pubs_data["items"]) == 1
+        assert pubs_data["items"][0]["target_chat_id"] == "@meu_canal"
+        assert pubs_data["total"] == 1

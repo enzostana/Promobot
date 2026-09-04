@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import List, Optional
-from sqlalchemy import desc, select
+from sqlalchemy import desc, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import PublicationModel
 
@@ -33,7 +33,30 @@ class PublicationRepository:
         await self.session.flush()
         return pub
 
-    async def list_publications(self, limit: int = 50, offset: int = 0) -> List[PublicationModel]:
+    async def list_publications(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        platform: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> List[PublicationModel]:
         stmt = select(PublicationModel).order_by(desc(PublicationModel.published_at)).limit(limit).offset(offset)
+        if platform:
+            stmt = stmt.where(PublicationModel.platform == platform)
+        if status:
+            stmt = stmt.where(PublicationModel.status == status)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count_publications(
+        self,
+        platform: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> int:
+        stmt = select(func.count(PublicationModel.id))
+        if platform:
+            stmt = stmt.where(PublicationModel.platform == platform)
+        if status:
+            stmt = stmt.where(PublicationModel.status == status)
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
