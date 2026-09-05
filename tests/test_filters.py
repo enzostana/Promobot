@@ -83,6 +83,28 @@ def test_filter_price_below_minimum(promo_filter):
     assert "abaixo do piso" in res.reason
 
 
+def test_filter_blocked_amazon():
+    settings = Settings(
+        APP_ENV="test",
+        BLOCKED_STORES="amazon",
+    )
+    promo_filter = PromotionFilter(settings=settings)
+    promo = Promotion(
+        source="telegram",
+        source_message_id="5b",
+        source_chat_id="@c",
+        original_text="Kindle 11ª geração",
+        product_name="Kindle 11ª geração",
+        sale_price=299.0,
+        discount_percentage=15.0,
+        store="amazon",
+        original_url="https://amazon.com.br/dp/B08N5WRWNW",
+    )
+    res = promo_filter.evaluate(promo)
+    assert res.passed is False
+    assert "Loja bloqueada" in res.reason
+
+
 def test_filter_blocked_store(promo_filter):
     # Blocked store in test_settings is "aliexpress"
     promo = Promotion(
