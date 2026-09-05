@@ -156,3 +156,37 @@ async def test_publish_missing_credentials_returns_failure_without_http():
 
     assert result.success is False
     assert "não configurados" in result.error_message
+
+
+@pytest.mark.asyncio
+async def test_create_retry_transport_no_crash():
+    """_create_retry_transport must build a client without raising (no httpx.Retry)."""
+    publisher = TelegramPublisher(settings=_settings())
+    client = publisher._create_retry_transport()
+    assert isinstance(client, httpx.AsyncClient)
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_publish_retries_on_429_then_succeeds():
+    """_post_with_retry should retry on 429 and succeed on subsequent attempt."""
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if len(calls) == 1:
+            # First call: rate limited
+            return httpx.Response(429, json={"ok": False, "description": "Too Many Requests"}, headers={"Retry-After": "0"})
+        # Second call: success
+        return httpx.Response(200, json={"ok": True, "result": {"message_id": 404}})
+
+    client = _http_client(handler)
+    publisher = TelegramPublisher(settings=_settings(), client=client)
+    try:
+        result = await publisher.publish(_make_promotion(image_url=None), "Mensagem teste")
+    finally:
+        await client.aclose()
+
+    assert result.success is True
+    assert result.target_message_id == "404"
+    assert len(calls) == 2, f"Expected 2 calls, got {len(calls)}"

@@ -200,17 +200,36 @@ class TelegramPublisher(Publisher):
         self.settings = settings or get_settings()
         self._client = client
 
+    RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+    MAX_RETRIES = 3
+    BASE_BACKOFF = 0.5
+    MAX_BACKOFF = 8.0
+
     def _create_retry_transport(self) -> httpx.AsyncClient:
-        """Create an httpx client with retry logic for transient errors."""
-        # Retry on 429 (rate limit), 5xx server errors, and network errors
-        retry = httpx.Retry(
-            total=3,
-            backoff_factor=0.5,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
-        )
-        transport = httpx.AsyncHTTPTransport(retries=retry)
+        """Create an httpx client with transport-level retries for network errors."""
+        # httpx 0.28+: 'retries' accepts int (network retries only)
+        transport = httpx.AsyncHTTPTransport(retries=3)
         return httpx.AsyncClient(transport=transport, timeout=30.0)
+
+    async def _post_with_retry(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        *,
+        data: dict | None = None,
+        files: dict | None = None,
+    ) -> httpx.Response:
+        """POST with manual retry for 429/5xx status codes."""
+        for attempt in range(self.MAX_RETRIES):
+            resp = await client.post(url, data=data, files=files)
+            if resp.status_code not in self.RETRYABLE_STATUS or attempt == self.MAX_RETRIES - 1:
+                return resp
+            delay = min(self.BASE_BACKOFF * (2**attempt), self.MAX_BACKOFF)
+            retry_after = resp.headers.get("Retry-After")
+            if retry_after and retry_after.isdigit():
+                delay = max(delay, float(retry_after))
+            await asyncio.sleep(delay)
+        return resp
 
     async def _http_client(self) -> httpx.AsyncClient:
         if self._client is not None:
@@ -256,13 +275,13 @@ class TelegramPublisher(Publisher):
                         "caption": formatted_message,
                         "parse_mode": "HTML"
                     }
-                    # Fallback parse_mode if HTML fails
-                    resp = await client.post(url, data=data, files=files)
+                    # First attempt with parse_mode=HTML
+                    resp = await self._post_with_retry(client, url, data=data, files=files)
                     if not resp.is_success:
                         # Retry without parse_mode
                         f.seek(0)
                         data.pop("parse_mode", None)
-                        resp = await client.post(url, data=data, files={"photo": (os.path.basename(media_path), f, "image/jpeg")})
+                        resp = await self._post_with_retry(client, url, data=data, files={"photo": (os.path.basename(media_path), f, "image/jpeg")})
             elif promotion.image_url and promotion.image_url.startswith("http"):
                 # Send photo by URL
                 url = f"{api_base}/sendPhoto"
@@ -271,7 +290,7 @@ class TelegramPublisher(Publisher):
                     "photo": promotion.image_url,
                     "caption": formatted_message
                 }
-                resp = await client.post(url, data=data)
+                resp = await self._post_with_retry(client, url, data=data)
             else:
                 # Send plain text
                 url = f"{api_base}/sendMessage"
@@ -280,7 +299,7 @@ class TelegramPublisher(Publisher):
                     "text": formatted_message,
                     "disable_web_page_preview": False
                 }
-                resp = await client.post(url, data=data)
+                resp = await self._post_with_retry(client, url, data=data)
 
             await self._http_close(client)
 

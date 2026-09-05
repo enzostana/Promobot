@@ -19,7 +19,8 @@ async def _get_health_data(service_name: str) -> dict:
         await r.ping()
         queue_lag = await r.llen(settings.REDIS_QUEUE_NAME)
         # Try to get last processed timestamp from Redis
-        last_processed = await r.get(f"promobot:last_processed:{service_name}")
+        raw_last_processed = await r.get(f"promobot:last_processed:{service_name}")
+        last_processed = raw_last_processed.decode("utf-8") if raw_last_processed else None
         await r.aclose()
     except Exception as e:
         logger.error(f"[HEALTH:{service_name}] Redis check failed: {e}")

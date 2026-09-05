@@ -1,6 +1,7 @@
 # Sensitive / local-only files - never bake into images
 .env
 .env.*
+secrets/
 
 # Version control
 .git
