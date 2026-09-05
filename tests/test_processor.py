@@ -93,6 +93,51 @@ async def test_pipeline_deduplication_multi_source(async_db_session, test_settin
 
 
 @pytest.mark.asyncio
+async def test_painel_test_bypasses_dedup(async_db_session, test_settings, mock_publisher):
+    processor = PromotionProcessor(
+        publisher=mock_publisher,
+        settings=test_settings
+    )
+
+    # A real (telegram) message publishes the deal and registers it as seen
+    msg_telegram = RawMessage(
+        id="msg-tg",
+        source="telegram",
+        source_message_id="501",
+        source_chat_id="@canal_a",
+        text="TV 50 4K\nPor: R$ 1.899\nhttps://www.amazon.com.br/dp/B08N5WRWNW"
+    )
+    promo_tg = await processor.process(msg_telegram, db_session=async_db_session)
+    assert promo_tg.status == PromotionStatus.PUBLISHED
+    assert len(mock_publisher.published_promotions) == 1
+
+    # The very same content via painel test must STILL publish (dedup bypassed)
+    msg_painel = RawMessage(
+        id="painel-test-abc123",
+        source="painel",
+        source_message_id="painel-test-abc123",
+        source_chat_id="",
+        text="TV 50 4K\nPor: R$ 1.899\nhttps://www.amazon.com.br/dp/B08N5WRWNW"
+    )
+    promo_painel = await processor.process(msg_painel, db_session=async_db_session)
+    assert promo_painel is not None
+    assert promo_painel.status == PromotionStatus.PUBLISHED
+    assert len(mock_publisher.published_promotions) == 2
+
+    # Dedup still guards real messages with the same content
+    msg_dup = RawMessage(
+        id="msg-dup",
+        source="telegram",
+        source_message_id="502",
+        source_chat_id="@canal_b",
+        text="TV 50 4K\nPor: R$ 1.899\nhttps://www.amazon.com.br/dp/B08N5WRWNW"
+    )
+    promo_dup = await processor.process(msg_dup, db_session=async_db_session)
+    assert promo_dup.status == PromotionStatus.DUPLICATE
+    assert len(mock_publisher.published_promotions) == 2
+
+
+@pytest.mark.asyncio
 async def test_pipeline_filtered_out(async_db_session, test_settings, mock_publisher):
     processor = PromotionProcessor(
         publisher=mock_publisher,

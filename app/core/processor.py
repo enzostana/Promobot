@@ -131,18 +131,22 @@ class PromotionProcessor:
             )
 
             # 4. Deduplication check
-            is_dup, existing_id = await self.deduplicator.is_duplicate(promo, db_repo=promo_repo)
-            if is_dup:
-                logger.info(f"[DEDUP] promoção duplicada detectada (id existente: {existing_id})")
-                promo.status = PromotionStatus.DUPLICATE
-                if promo_repo and existing_id:
-                    # Register this source as another source capturing the deal
-                    await promo_repo.add_source_reference(
-                        promotion_id=existing_id,
-                        source_chat_id=raw_msg.source_chat_id,
-                        source_message_id=raw_msg.source_message_id
-                    )
-                return promo
+            skip_dedup = raw_msg.source == "painel"
+            if skip_dedup:
+                logger.info("[DEDUP] teste do painel: dedup ignorado")
+            else:
+                is_dup, existing_id = await self.deduplicator.is_duplicate(promo, db_repo=promo_repo)
+                if is_dup:
+                    logger.info(f"[DEDUP] promoção duplicada detectada (id existente: {existing_id})")
+                    promo.status = PromotionStatus.DUPLICATE
+                    if promo_repo and existing_id:
+                        # Register this source as another source capturing the deal
+                        await promo_repo.add_source_reference(
+                            promotion_id=existing_id,
+                            source_chat_id=raw_msg.source_chat_id,
+                            source_message_id=raw_msg.source_message_id
+                        )
+                    return promo
 
             logger.info(f"[DEDUP] promoção nova: hash={content_hash[:12]}...")
 
