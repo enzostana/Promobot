@@ -100,6 +100,9 @@ services:
       environment:
         - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD_ENC}@postgres:5432/${POSTGRES_DB:-promobot}
         - REDIS_URL=redis://redis:6379/0
+        - SECRET_FILES_DIR=/app/secret_files
+      volumes:
+        - /home/cinadmin/promobot/secrets:/app/secret_files
       depends_on:
         migrator:
           condition: service_completed_successfully

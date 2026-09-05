@@ -173,6 +173,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
+                    <a href="/painel" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-150" style="background: var(--surface-2); color: var(--text-secondary); border: 1.5px solid var(--border-strong);">Painel</a>
                     <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold badge-green">
                         <span class="badge-dot"></span>
                         Online

@@ -48,6 +48,17 @@ class PromotionProcessor:
         self.formatter = formatter or PromotionFormatter()
         self.publisher = publisher
 
+    def refresh_runtime(self, settings: Optional[Settings] = None) -> None:
+        """
+        Rebuilds runtime-dependent components after settings change.
+        Affiliate providers cache their tag at construction, so the registry
+        must be rebuilt when tags are edited in the control panel.
+        """
+        if settings is not None:
+            self.settings = settings
+        self.affiliates = AffiliateRegistry(self.settings)
+        self.filters = PromotionFilter(self.settings)
+
     async def process(self, raw_msg: RawMessage, db_session: Optional[AsyncSession] = None) -> Optional[Promotion]:
         """
         Executes the full pipeline for a single raw message.

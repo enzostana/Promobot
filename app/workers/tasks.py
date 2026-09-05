@@ -2,12 +2,13 @@ import asyncio
 import logging
 import signal
 from typing import Optional
-from app.config.settings import get_settings
+from app.config.settings import Settings
 from app.core.models import RawMessage
 from app.core.processor import PromotionProcessor
 from app.adapters.telegram import TelegramPublisher
 from app.workers.queue import RedisQueue
 from app.database.session import async_session_maker, init_db
+from app.core.runtime_settings import RuntimeOverrides
 from app.workers.health_server import run_health_server
 import redis.asyncio as redis
 
@@ -25,7 +26,10 @@ class Worker:
     """
 
     def __init__(self, queue: Optional[RedisQueue] = None, processor: Optional[PromotionProcessor] = None):
-        self.settings = get_settings()
+        # Fresh Settings instance (not the cached singleton) so runtime overrides
+        # applied in-place are scoped to this process.
+        self.settings = Settings()
+        self.runtime_overrides = RuntimeOverrides()
         self.queue = queue or RedisQueue(self.settings)
         publisher = TelegramPublisher(self.settings)
         self.processor = processor or PromotionProcessor(publisher=publisher, settings=self.settings)
@@ -64,6 +68,22 @@ class Worker:
                     continue
 
                 logger.info(f"[WORKER] Nova mensagem recebida da fila: id={raw_msg.id} (origem: {raw_msg.source_chat_id}, tentativa {raw_msg.attempts + 1})")
+
+                # Apply runtime settings edited in the control panel (DB overrides)
+                try:
+                    async with async_session_maker() as settings_session:
+                        await self.runtime_overrides.apply(settings_session, self.settings)
+                except Exception as e:
+                    logger.warning(f"[WORKER] Falha ao atualizar configurações dinâmicas: {e}")
+
+                # Rebuild runtime-dependent components (affiliate tags, filters)
+                self.processor.refresh_runtime(self.settings)
+
+                if self.runtime_overrides.is_paused():
+                    logger.info("[WORKER] Bot pausado pelo painel; mensagem re-enfileirada, aguardando retomar.")
+                    await self.queue.enqueue(raw_msg)
+                    await asyncio.sleep(5)
+                    continue
 
                 # Open database session for this message transaction
                 async with async_session_maker() as db_session:
