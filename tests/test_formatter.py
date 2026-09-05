@@ -62,6 +62,26 @@ def test_format_without_original_price(formatter):
     assert "⚡ Oferta sujeita a alteração de preço/estoque." in output
 
 
+def test_format_strips_embedded_url_from_title(formatter):
+    promo = Promotion(
+        source="telegram",
+        source_message_id="3",
+        source_chat_id="@test",
+        original_text="Texto com link https://www.amazon.com.br/dp/B08N5WRWNW",
+        product_name="Fone Bluetooth JBL por R$ 199,90! https://www.amazon.com.br/dp/B08N5WRWNW",
+        sale_price=199.90,
+        store="amazon",
+        original_url="https://www.amazon.com.br/dp/B08N5WRWNW",
+        affiliate_url="https://www.amazon.com.br/dp/B08N5WRWNW?tag=minhatag-20",
+    )
+
+    output = formatter.format(promo)
+
+    assert "🔥 Fone Bluetooth JBL por R$ 199,90!" in output
+    assert output.count("amazon.com.br/dp/B08N5WRWNW") == 1
+    assert "?tag=minhatag-20" in output
+
+
 def test_format_currency_helper(formatter):
     assert formatter.format_currency(2499.0) == "2.499"
     assert formatter.format_currency(1899.0) == "1.899"

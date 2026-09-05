@@ -56,6 +56,22 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
         }
     </script>
     <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+            --surface: #0f172a;
+            --surface-2: #1e293b;
+            --border: #1e293b;
+            --border-strong: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --text-faint: #64748b;
+            --accent: #60a5fa;
+            --accent-strong: #3b82f6;
+            --green: #4ade80;
+            --red: #f87171;
+        }
+        html { color-scheme: dark; }
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
 
         .chip {
@@ -65,69 +81,49 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             transition: all 0.15s ease; cursor: pointer; user-select: none;
             border: 1.5px solid transparent;
         }
-        .chip-default {
-            background: #f1f5f9; color: #475569; border-color: #e2e8f0;
-        }
-        .chip-default:hover { background: #e2e8f0; color: #1e293b; }
-        @media (prefers-color-scheme: dark) {
-            .chip-default { background: #1e293b; color: #94a3b8; border-color: #334155; }
-            .chip-default:hover { background: #334155; color: #e2e8f0; }
-        }
+        .chip-default { background: var(--surface-2); color: var(--text-muted); border-color: var(--border-strong); }
+        .chip-default:hover { background: var(--border-strong); color: var(--text-secondary); }
         .chip-active { background: #2563eb !important; color: #fff !important; border-color: #1d4ed8 !important; box-shadow: 0 1px 3px rgba(37,99,235,0.3); }
 
         .card {
-            background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
-            overflow: hidden;
-        }
-        @media (prefers-color-scheme: dark) {
-            .card { background: #0f172a; border-color: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+            background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3); overflow: hidden;
         }
 
         .tab-btn {
             padding: 10px 18px; font-size: 0.875rem; font-weight: 600;
             border-radius: 10px 10px 0 0; transition: all 0.15s ease;
             border-bottom: 2.5px solid transparent;
-            color: #64748b; background: transparent;
+            color: var(--text-faint); background: transparent;
         }
-        .tab-btn:hover { color: #334155; background: rgba(0,0,0,0.02); }
-        .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; background: #fff; }
-        @media (prefers-color-scheme: dark) {
-            .tab-btn { color: #64748b; }
-            .tab-btn:hover { color: #94a3b8; background: rgba(255,255,255,0.02); }
-            .tab-btn.active { color: #60a5fa; border-bottom-color: #3b82f6; background: #0f172a; }
-        }
+        .tab-btn:hover { color: var(--text-muted); background: rgba(255,255,255,0.02); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent-strong); background: var(--surface); }
 
         .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 700px; }
         th {
             padding: 12px 16px; text-align: left;
             font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;
-            text-transform: uppercase; color: #64748b;
-            background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;
+            text-transform: uppercase; color: var(--text-muted);
+            background: var(--surface-2); border-bottom: 1.5px solid var(--border-strong);
         }
         td {
-            padding: 12px 16px; font-size: 0.8125rem; color: #1e293b;
-            border-bottom: 1px solid #f1f5f9;
+            padding: 12px 16px; font-size: 0.8125rem; color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
         }
         tbody tr { transition: background 0.1s; }
-        tbody tr:hover { background: #f8fafc; }
-        @media (prefers-color-scheme: dark) {
-            th { background: #1e293b; border-bottom-color: #334155; color: #94a3b8; }
-            td { color: #e2e8f0; border-bottom-color: #1e293b; }
-            tbody tr:hover { background: rgba(255,255,255,0.02); }
-        }
+        tbody tr:hover { background: rgba(255,255,255,0.02); }
 
         .badge {
             display: inline-flex; align-items: center; gap: 4px;
             padding: 3px 10px; border-radius: 9999px;
             font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em;
         }
-        .badge-green { background: #dcfce7; color: #15803d; }
-        .badge-amber { background: #fef3c7; color: #b45309; }
-        .badge-gray  { background: #f1f5f9; color: #475569; }
-        .badge-red   { background: #fee2e2; color: #dc2626; }
-        .badge-blue  { background: #dbeafe; color: #1d4ed8; }
+        .badge-green { background: #052e16; color: var(--green); }
+        .badge-amber { background: #451a03; color: #fbbf24; }
+        .badge-gray  { background: var(--surface-2); color: var(--text-muted); }
+        .badge-red   { background: #450a0a; color: var(--red); }
+        .badge-blue  { background: #172554; color: var(--accent); }
         .badge-dot {
             width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
         }
@@ -136,38 +132,22 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
         .badge-gray  .badge-dot { background: #94a3b8; }
         .badge-red   .badge-dot { background: #ef4444; }
         .badge-blue  .badge-dot { background: #3b82f6; }
-        @media (prefers-color-scheme: dark) {
-            .badge-green { background: #052e16; color: #4ade80; }
-            .badge-amber { background: #451a03; color: #fbbf24; }
-            .badge-gray  { background: #1e293b; color: #94a3b8; }
-            .badge-red   { background: #450a0a; color: #f87171; }
-            .badge-blue  { background: #172554; color: #60a5fa; }
-        }
 
         .empty-box {
             display: flex; flex-direction: column; align-items: center;
             justify-content: center; padding: 48px 16px; text-align: center;
         }
-        .empty-box svg { width: 56px; height: 56px; color: #cbd5e1; margin-bottom: 16px; }
-        .empty-box p { color: #64748b; font-size: 0.875rem; }
-        .empty-box span { color: #94a3b8; font-size: 0.75rem; margin-top: 4px; }
-        @media (prefers-color-scheme: dark) {
-            .empty-box svg { color: #334155; }
-            .empty-box p { color: #94a3b8; }
-            .empty-box span { color: #64748b; }
-        }
+        .empty-box svg { width: 56px; height: 56px; color: var(--border-strong); margin-bottom: 16px; }
+        .empty-box p { color: var(--text-muted); font-size: 0.875rem; }
+        .empty-box span { color: var(--text-faint); font-size: 0.75rem; margin-top: 4px; }
 
         .pg-btn {
             padding: 6px 14px; font-size: 0.8125rem; font-weight: 600;
-            border-radius: 8px; border: 1.5px solid #e2e8f0;
-            color: #334155; background: #fff; transition: all 0.15s;
+            border-radius: 8px; border: 1.5px solid var(--border-strong);
+            color: var(--text-muted); background: var(--surface-2); transition: all 0.15s;
         }
-        .pg-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .pg-btn:hover { background: var(--border-strong); }
         .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        @media (prefers-color-scheme: dark) {
-            .pg-btn { border-color: #334155; color: #94a3b8; background: #1e293b; }
-            .pg-btn:hover { background: #334155; }
-        }
 
         .htmx-indicator { opacity: 0; transition: opacity 0.2s; }
         .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
@@ -176,7 +156,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="min-h-screen" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);">
+<body class="min-h-screen" style="background: var(--bg-gradient);">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
 
         <header class="mb-8">
@@ -188,8 +168,8 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                         </svg>
                     </div>
                     <div>
-                        <h1 class="text-xl sm:text-2xl font-extrabold" style="color:#0f172a;">PromoBot</h1>
-                        <p class="text-sm font-medium" style="color:#64748b;">Dashboard de Promoções</p>
+                        <h1 class="text-xl sm:text-2xl font-extrabold" style="color:var(--text-primary);">PromoBot</h1>
+                        <p class="text-sm font-medium" style="color:var(--text-muted);">Dashboard de Promoções</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
@@ -208,7 +188,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
         </section>
 
         <div class="card">
-            <div class="border-b" style="border-color:#e2e8f0;">
+            <div class="border-b" style="border-color:var(--border-strong);">
                 <nav class="flex gap-0.5 px-2 pt-1" role="tablist">
                     <button id="tab-promocoes" class="tab-btn active" role="tab" aria-selected="true"
                         hx-get="/dashboard/partial/promocoes" hx-trigger="click" hx-target="#table-container" hx-swap="innerHTML">
@@ -229,14 +209,14 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                 <div class="flex justify-center py-16">
                     <div class="flex flex-col items-center gap-3">
                         <svg class="animate-spin h-7 w-7 text-brand-600" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                        <span class="text-sm font-medium" style="color:#64748b;">Carregando...</span>
+                        <span class="text-sm font-medium" style="color:var(--text-muted);">Carregando...</span>
                     </div>
                 </div>
             </div>
         </div>
 
         <footer class="mt-8 text-center">
-            <a href="/docs" class="text-xs font-medium" style="color:#94a3b8;" target="_blank">API Docs &rarr;</a>
+            <a href="/docs" class="text-xs font-medium" style="color:var(--text-muted);" target="_blank">API Docs &rarr;</a>
         </footer>
     </div>
 
@@ -257,8 +237,8 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
 
 DASHBOARD_FILTERS_HTML = '''<div class="flex flex-col gap-3" id="filter-chips">
     <div class="flex flex-wrap items-center gap-2">
-        <span class="text-xs font-bold uppercase tracking-wider" style="color:#94a3b8;">Período</span>
-        <div class="h-4 w-px" style="background:#e2e8f0;"></div>
+        <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--text-muted);">Período</span>
+        <div class="h-4 w-px" style="background:var(--border-strong);"></div>
         <button class="chip chip-default" data-filter="period" data-value="24h"
             hx-get="/dashboard/partial/promocoes?period=24h" hx-target="#table-container" hx-swap="innerHTML">24h</button>
         <button class="chip chip-default" data-filter="period" data-value="7d"
@@ -269,8 +249,8 @@ DASHBOARD_FILTERS_HTML = '''<div class="flex flex-col gap-3" id="filter-chips">
             hx-get="/dashboard/partial/promocoes?period=90d" hx-target="#table-container" hx-swap="innerHTML">90 dias</button>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-        <span class="text-xs font-bold uppercase tracking-wider" style="color:#94a3b8;">Status</span>
-        <div class="h-4 w-px" style="background:#e2e8f0;"></div>
+        <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--text-muted);">Status</span>
+        <div class="h-4 w-px" style="background:var(--border-strong);"></div>
         {% for s in statuses %}
         <button class="chip chip-default" data-filter="status" data-value="{{ s }}"
             hx-get="/dashboard/partial/promocoes?status={{ s }}" hx-target="#table-container" hx-swap="innerHTML">
@@ -278,12 +258,12 @@ DASHBOARD_FILTERS_HTML = '''<div class="flex flex-col gap-3" id="filter-chips">
         </button>
         {% endfor %}
         {% if not statuses %}
-        <span class="text-xs" style="color:#94a3b8;">Nenhum</span>
+        <span class="text-xs" style="color:var(--text-muted);">Nenhum</span>
         {% endif %}
     </div>
     <div class="flex flex-wrap items-center gap-2">
-        <span class="text-xs font-bold uppercase tracking-wider" style="color:#94a3b8;">Loja</span>
-        <div class="h-4 w-px" style="background:#e2e8f0;"></div>
+        <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--text-muted);">Loja</span>
+        <div class="h-4 w-px" style="background:var(--border-strong);"></div>
         {% for store in stores %}
         <button class="chip chip-default" data-filter="store" data-value="{{ store }}"
             hx-get="/dashboard/partial/promocoes?store={{ store }}" hx-target="#table-container" hx-swap="innerHTML">
@@ -291,12 +271,12 @@ DASHBOARD_FILTERS_HTML = '''<div class="flex flex-col gap-3" id="filter-chips">
         </button>
         {% endfor %}
         {% if not stores %}
-        <span class="text-xs" style="color:#94a3b8;">Nenhuma</span>
+        <span class="text-xs" style="color:var(--text-muted);">Nenhuma</span>
         {% endif %}
     </div>
     <div class="flex flex-wrap items-center gap-2">
-        <span class="text-xs font-bold uppercase tracking-wider" style="color:#94a3b8;">Categoria</span>
-        <div class="h-4 w-px" style="background:#e2e8f0;"></div>
+        <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--text-muted);">Categoria</span>
+        <div class="h-4 w-px" style="background:var(--border-strong);"></div>
         {% for cat in categories %}
         <button class="chip chip-default" data-filter="category" data-value="{{ cat }}"
             hx-get="/dashboard/partial/promocoes?category={{ cat }}" hx-target="#table-container" hx-swap="innerHTML">
@@ -304,7 +284,7 @@ DASHBOARD_FILTERS_HTML = '''<div class="flex flex-col gap-3" id="filter-chips">
         </button>
         {% endfor %}
         {% if not categories %}
-        <span class="text-xs" style="color:#94a3b8;">Nenhuma</span>
+        <span class="text-xs" style="color:var(--text-muted);">Nenhuma</span>
         {% endif %}
     </div>
     <div class="flex justify-end mt-1">
@@ -335,37 +315,37 @@ PROMOCOES_PARTIAL = '''<div data-tab="promocoes">
                 {% if promotions.items %}
                     {% for p in promotions.items %}
                     <tr>
-                        <td class="font-semibold" style="color:#94a3b8;">#{{ p.id }}</td>
-                        <td style="color:#0f172a; font-weight:500;">
+                        <td class="font-semibold" style="color:var(--text-muted);">#{{ p.id }}</td>
+                        <td style="color:var(--text-primary); font-weight:500;">
                             <span class="truncate block max-w-[200px] sm:max-w-[300px]" title="{{ p.product_name }}">{{ p.product_name }}</span>
                         </td>
                         <td>
                             {% if p.store %}
                             <span class="badge badge-blue"><span class="badge-dot"></span>{{ p.store.title() }}</span>
                             {% else %}
-                            <span style="color:#cbd5e1;">—</span>
+                            <span style="color:var(--text-faint);">—</span>
                             {% endif %}
                         </td>
-                        <td style="color:#64748b;">{{ 'R$ ' + ("%.2f"|format(p.original_price)) if p.original_price is not none else '—' }}</td>
+                        <td style="color:var(--text-muted);">{{ 'R$ ' + ("%.2f"|format(p.original_price)) if p.original_price is not none else '—' }}</td>
                         <td>
                             {% if p.sale_price is not none %}
-                            <span class="font-bold" style="color:#16a34a;">R$ {{ "%.2f"|format(p.sale_price) }}</span>
+                            <span class="font-bold" style="color:var(--green);">R$ {{ "%.2f"|format(p.sale_price) }}</span>
                             {% else %}
-                            <span style="color:#cbd5e1;">—</span>
+                            <span style="color:var(--text-faint);">—</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if p.discount_percentage is not none %}
                             <span class="badge badge-green"><span class="badge-dot"></span>{{ "%.0f"|format(p.discount_percentage) }}%</span>
                             {% else %}
-                            <span style="color:#cbd5e1;">—</span>
+                            <span style="color:var(--text-faint);">—</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if p.category %}
-                            <span style="color:#64748b; font-weight:500;">{{ p.category.replace('_', ' ').title() }}</span>
+                            <span style="color:var(--text-secondary); font-weight:500;">{{ p.category.replace('_', ' ').title() }}</span>
                             {% else %}
-                            <span style="color:#cbd5e1;">—</span>
+                            <span style="color:var(--text-faint);">—</span>
                             {% endif %}
                         </td>
                         <td>
@@ -383,7 +363,7 @@ PROMOCOES_PARTIAL = '''<div data-tab="promocoes">
                             <span class="badge badge-gray">{{ p.status }}</span>
                             {% endif %}
                         </td>
-                        <td style="color:#94a3b8; font-size:0.75rem; white-space:nowrap;">{{ format_date(p.created_at) }}</td>
+                        <td style="color:var(--text-muted); font-size:0.75rem; white-space:nowrap;">{{ format_date(p.created_at) }}</td>
                     </tr>
                     {% endfor %}
                 {% else %}
@@ -401,8 +381,8 @@ PROMOCOES_PARTIAL = '''<div data-tab="promocoes">
         </table>
     </div>
     {% if promotions.total_pages > 1 %}
-    <div class="flex flex-col sm:flex-row items-center justify-between mt-4 pt-4 gap-3" style="border-top:1px solid #f1f5f9;">
-        <p class="text-xs font-medium" style="color:#94a3b8;">
+    <div class="flex flex-col sm:flex-row items-center justify-between mt-4 pt-4 gap-3" style="border-top:1px solid var(--border-strong);">
+        <p class="text-xs font-medium" style="color:var(--text-muted);">
             Página {{ promotions.page }} de {{ promotions.total_pages }} &middot; {{ promotions.total }} promoções
         </p>
         <div class="flex gap-2">
@@ -436,10 +416,10 @@ FONTES_PARTIAL = '''<div data-tab="fontes">
                 {% if sources.items %}
                     {% for s in sources.items %}
                     <tr>
-                        <td class="font-semibold" style="color:#94a3b8;">#{{ s.id }}</td>
+                        <td class="font-semibold" style="color:var(--text-muted);">#{{ s.id }}</td>
                         <td><span class="badge badge-blue"><span class="badge-dot"></span>{{ s.platform }}</span></td>
-                        <td style="font-family:monospace; font-size:0.8rem; color:#475569;">{{ s.chat_id }}</td>
-                        <td style="font-weight:500; color:#0f172a;">{{ s.name or '—' }}</td>
+                        <td style="font-family:monospace; font-size:0.8rem; color:var(--text-secondary);">{{ s.chat_id }}</td>
+                        <td style="font-weight:500; color:var(--text-primary);">{{ s.name or '—' }}</td>
                         <td>
                             {% if s.is_active %}
                             <span class="badge badge-green"><span class="badge-dot"></span>Ativa</span>
@@ -447,7 +427,7 @@ FONTES_PARTIAL = '''<div data-tab="fontes">
                             <span class="badge badge-gray"><span class="badge-dot"></span>Inativa</span>
                             {% endif %}
                         </td>
-                        <td style="color:#94a3b8; font-size:0.75rem; white-space:nowrap;">{{ format_date(s.created_at) }}</td>
+                        <td style="color:var(--text-muted); font-size:0.75rem; white-space:nowrap;">{{ format_date(s.created_at) }}</td>
                     </tr>
                     {% endfor %}
                 {% else %}
@@ -465,8 +445,8 @@ FONTES_PARTIAL = '''<div data-tab="fontes">
         </table>
     </div>
     {% if sources.total_pages > 1 %}
-    <div class="flex flex-col sm:flex-row items-center justify-between mt-4 pt-4 gap-3" style="border-top:1px solid #f1f5f9;">
-        <p class="text-xs font-medium" style="color:#94a3b8;">
+    <div class="flex flex-col sm:flex-row items-center justify-between mt-4 pt-4 gap-3" style="border-top:1px solid var(--border-strong);">
+        <p class="text-xs font-medium" style="color:var(--text-muted);">
             Página {{ sources.page }} de {{ sources.total_pages }} &middot; {{ sources.total }} fontes
         </p>
         <div class="flex gap-2">
@@ -501,10 +481,10 @@ PUBLICACOES_PARTIAL = '''<div data-tab="publicacoes">
                 {% if publications.items %}
                     {% for p in publications.items %}
                     <tr>
-                        <td class="font-semibold" style="color:#94a3b8;">#{{ p.id }}</td>
-                        <td class="font-semibold" style="color:#2563eb;">#{{ p.promotion_id }}</td>
+                        <td class="font-semibold" style="color:var(--text-muted);">#{{ p.id }}</td>
+                        <td class="font-semibold" style="color:var(--accent);">#{{ p.promotion_id }}</td>
                         <td><span class="badge badge-blue"><span class="badge-dot"></span>{{ p.platform }}</span></td>
-                        <td style="font-family:monospace; font-size:0.8rem; color:#475569;">{{ p.target_chat_id }}</td>
+                        <td style="font-family:monospace; font-size:0.8rem; color:var(--text-secondary);">{{ p.target_chat_id }}</td>
                         <td>
                             {% if p.status == 'published' %}
                             <span class="badge badge-green"><span class="badge-dot"></span>Publicado</span>
@@ -518,12 +498,12 @@ PUBLICACOES_PARTIAL = '''<div data-tab="publicacoes">
                         </td>
                         <td style="max-width:180px;">
                             {% if p.error_message %}
-                            <span class="truncate block font-medium" style="color:#dc2626; font-size:0.75rem;" title="{{ p.error_message }}">{{ p.error_message }}</span>
+                            <span class="truncate block font-medium" style="color:var(--red); font-size:0.75rem;" title="{{ p.error_message }}">{{ p.error_message }}</span>
                             {% else %}
-                            <span style="color:#cbd5e1;">—</span>
+                            <span style="color:var(--text-faint);">—</span>
                             {% endif %}
                         </td>
-                        <td style="color:#94a3b8; font-size:0.75rem; white-space:nowrap;">{{ format_date(p.published_at) }}</td>
+                        <td style="color:var(--text-muted); font-size:0.75rem; white-space:nowrap;">{{ format_date(p.published_at) }}</td>
                     </tr>
                     {% endfor %}
                 {% else %}
@@ -541,8 +521,8 @@ PUBLICACOES_PARTIAL = '''<div data-tab="publicacoes">
         </table>
     </div>
     {% if publications.total_pages > 1 %}
-    <div class="flex flex-col sm:flex-row items-center justify-between mt-4 pt-4 gap-3" style="border-top:1px solid #f1f5f9;">
-        <p class="text-xs font-medium" style="color:#94a3b8;">
+    <div class="flex flex-col sm:flex-row items-center justify-between mt-4 pt-4 gap-3" style="border-top:1px solid var(--border-strong);">
+        <p class="text-xs font-medium" style="color:var(--text-muted);">
             Página {{ publications.page }} de {{ publications.total_pages }} &middot; {{ publications.total }} publicações
         </p>
         <div class="flex gap-2">

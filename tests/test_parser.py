@@ -106,6 +106,25 @@ def test_parse_message_messy_text(parser):
     assert parsed.discount_percentage > 60.0
 
 
+def test_product_name_strips_embedded_url(parser):
+    text = (
+        "🔥 Fone Bluetooth JBL por apenas R$ 199,90! "
+        "https://www.mercadolivre.com.br/p/MLB1002003001"
+    )
+    raw = RawMessage(
+        id="7",
+        source="telegram",
+        source_message_id="107",
+        source_chat_id="@promo_deals",
+        text=text
+    )
+    parsed = parser.parse(raw)
+
+    assert "http" not in parsed.product_name
+    assert "Fone Bluetooth JBL" in parsed.product_name
+    assert parsed.original_url == "https://www.mercadolivre.com.br/p/MLB1002003001"
+
+
 def test_parse_number_currency_formats(parser):
     # Brazilian format with dot thousand and comma decimal
     assert parser.parse_number("1.899,90") == 1899.90

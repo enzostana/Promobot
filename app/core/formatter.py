@@ -1,5 +1,8 @@
 from typing import Optional
+import re
 from app.core.models import Promotion
+
+_URL_RE = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)
 
 
 class PromotionFormatter:
@@ -38,6 +41,10 @@ class PromotionFormatter:
 
         # Product Title
         product_title = promotion.product_name.strip() if promotion.product_name else "Oferta Especial"
+        product_title = _URL_RE.sub("", product_title)
+        product_title = re.sub(r"\s+", " ", product_title).strip()
+        if not product_title:
+            product_title = "Oferta Especial"
         lines.append(f"🔥 {product_title}")
         lines.append("")
 

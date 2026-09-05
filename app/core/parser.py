@@ -267,6 +267,9 @@ class PromotionParser:
                 continue
 
             cleaned = self._clean_title(line)
+            # Strip any embedded URLs so the product name never carries a raw link
+            cleaned = self.URL_REGEX.sub("", cleaned)
+            cleaned = re.sub(r"\s+", " ", cleaned).strip()
             # Skip generic banners like "MEGA OFERTA"
             if cleaned.lower() in self.GENERIC_BANNER_WORDS:
                 continue
