@@ -70,6 +70,59 @@ def test_mercadolivre_provider():
     assert "utm_source" not in converted
 
 
+def test_mercadolivre_provider_shortlink_resolved_with_user_tag():
+    provider = MercadoLivreProvider(tag="12520971")
+    resolved_url = "https://www.mercadolivre.com.br/social/guru?ref=ABC123"
+    html = """
+    <meta property="og:title" content="Serra Tico Tico Profissional 500w 3000 Gpm Bst500 The Black Tools" />
+    <a href="https://www.mercadolivre.com.br/serra-tico-tico-profissional-500w-3000-gpm-bst500-the-black-tools/p/MLB26715512?matt_event_ts=1788911218266&matt_tool=73920577">x</a>
+    <a href="https://www.mercadolivre.com.br/serra-eletrica-tico-tico-einhell/p/MLB25804364?matt_tool=73920577">y</a>
+    """
+    provider._resolver = lambda url: resolved_url
+    provider._page_fetcher = lambda url: html
+
+    converted = provider.convert("https://meli.la/2PLK2PN")
+
+    assert converted.startswith("https://www.mercadolivre.com.br/serra-tico-tico-profissional-500w-3000-gpm-bst500-the-black-tools/p/MLB26715512")
+    assert "matt_tool=12520971" in converted
+    assert "matt_tool=73920577" not in converted
+    assert "matt_event_ts" not in converted
+    assert "matt_word" not in converted
+
+
+def test_mercadolivre_provider_shortlink_unresolved_fallback():
+    provider = MercadoLivreProvider(tag="12520971")
+    provider._resolver = lambda url: ""
+
+    converted = provider.convert("https://meli.la/2PLK2PN")
+
+    assert converted.startswith("https://meli.la/2PLK2PN")
+    assert "matt_tool=12520971" in converted
+
+
+def test_mercadolivre_provider_shortlink_page_without_product_keeps_resolved_url():
+    provider = MercadoLivreProvider(tag="12520971")
+    provider._resolver = lambda url: "https://www.mercadolivre.com.br/social/guru?ref=XYZ&matt_tool=73920577"
+    provider._page_fetcher = lambda url: "<html><body>no products</body></html>"
+
+    converted = provider.convert("https://meli.la/2PLK2PN")
+
+    assert converted.startswith("https://www.mercadolivre.com.br/social/guru?")
+    assert "matt_tool=12520971" in converted
+    assert "matt_tool=73920577" not in converted
+    assert "ref=XYZ" in converted
+
+
+def test_mercadolivre_resolver_follows_redirect():
+    provider = MercadoLivreProvider(tag="12520971")
+    converted = provider.convert("https://meli.la/28DwKXE")
+
+    assert converted.startswith("https://www.mercadolivre.com.br/")
+    assert "matt_tool=12520971" in converted
+    assert "matt_tool=30765415" not in converted
+    assert "/p/MLB" in converted or "/social/" in converted
+
+
 def test_shopee_provider():
     provider = ShopeeProvider(tag="shopee_promo_tag", app_id="app_999")
     url = "https://shopee.com.br/product/12345/67890?aff_trace_key=oldtag&utm_source=other"
