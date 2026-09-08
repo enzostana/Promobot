@@ -309,9 +309,30 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                     <div class="mb-4">
                         <label>Canal de destino (chat_id)</label>
                         <input type="text" id="telegram_target_chat" placeholder="-100xxxxxxxxxx">
-                        <p class="hint">Onde o bot publica as promoções aprovadas.</p>
+                        <p class="hint">Onde o bot publica as promoções aprovadas no Telegram.</p>
                     </div>
-                    <button class="btn btn-primary" onclick="saveSection('destinos', ['telegram_target_chat'], 'msg-destino')">Salvar Destino</button>
+                    <div class="mb-4">
+                        <label>Grupo WhatsApp (JID)</label>
+                        <input type="text" id="whatsapp_target_chat" placeholder="120363410512355040@g.us">
+                        <p class="hint">Grupo/contato alvo (o número pareado precisa estar no grupo).</p>
+                    </div>
+                    <div class="mb-4">
+                        <label>Publicar no WhatsApp</label>
+                        <select id="whatsapp_enabled">
+                            <option value="1">Ligado</option>
+                            <option value="0">Desligado</option>
+                        </select>
+                        <p class="hint">Se ligado, cada promoção aprovada também sai no grupo WhatsApp.</p>
+                    </div>
+                    <div class="mb-4">
+                        <label>Enviar imagem no WhatsApp</label>
+                        <select id="whatsapp_with_image">
+                            <option value="1">Ligado</option>
+                            <option value="0">Só texto + link</option>
+                        </select>
+                        <p class="hint">Quando houver imagem disponível na oferta.</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSection('destinos', ['telegram_target_chat','whatsapp_target_chat','whatsapp_enabled','whatsapp_with_image'], 'msg-destino')">Salvar Destino</button>
                     <div id="msg-destino" class="msg"></div>
                 </div>
             </div>
@@ -351,6 +372,9 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                     if (SECRET_KEYS.includes(key)) {
                         el.placeholder = meta.masked || "•••• (vazio = manter atual)";
                         el.value = "";
+                    } else if (el.tagName === 'SELECT') {
+                        const truthy = ["True", "true", "1", "on", "yes"];
+                        el.value = truthy.includes(meta.value) ? "1" : "0";
                     } else {
                         el.value = meta.value || "";
                     }

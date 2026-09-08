@@ -14,10 +14,16 @@ class AmazonProvider(AffiliateProvider):
         r'/(?:dp|gp/product|gp/aw/d|product)/([A-Z0-9]{10})',
         re.IGNORECASE
     )
+    # Short links whose path is exactly the ASIN (e.g. link.amazon/B0XXXXXXXX)
+    SHORTLINK_ASIN_REGEX = re.compile(
+        r'/([A-Z0-9]{10})/?$',
+        re.IGNORECASE
+    )
     DOMAIN_PATTERNS = [
         re.compile(r'amazon\.com(\.br)?$', re.IGNORECASE),
         re.compile(r'amzn\.to$', re.IGNORECASE),
         re.compile(r'a\.co$', re.IGNORECASE),
+        re.compile(r'link\.amazon(\.br)?$', re.IGNORECASE),
     ]
 
     def __init__(self, tag: Optional[str] = None):
@@ -40,7 +46,7 @@ class AmazonProvider(AffiliateProvider):
     def extract_product_id(self, url: str) -> Optional[str]:
         if not url:
             return None
-        match = self.ASIN_REGEX.search(url)
+        match = self.ASIN_REGEX.search(url) or self.SHORTLINK_ASIN_REGEX.search(url)
         if match:
             return match.group(1).upper()
         return None

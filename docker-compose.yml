@@ -207,6 +207,7 @@ services:
       - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - TELEGRAM_SOURCE_CHATS=-1001727085912,-1002053078217,-1001711010679
     depends_on:
       redis:
         condition: service_healthy

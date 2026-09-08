@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     TELEGRAM_SOURCE_CHATS: str = ""
     TELEGRAM_TARGET_CHAT: Optional[str] = None
 
+    # WhatsApp (Evolution API) - no defaults for secrets
+    EVOLUTION_URL: str = "http://evolution-api:8080"
+    EVOLUTION_INSTANCE: str = "promobot"
+    EVOLUTION_API_KEY: Optional[str] = None
+    WHATSAPP_TARGET_CHAT: Optional[str] = None
+    WHATSAPP_ENABLED: bool = True
+    WHATSAPP_WITH_IMAGE: bool = True
+
     # Affiliate Providers - no defaults for secrets
     AMAZON_TAG: Optional[str] = None
     MERCADOLIVRE_TAG: Optional[str] = None
@@ -90,6 +98,8 @@ class Settings(BaseSettings):
         # Load secrets from Docker secrets files if not set via env
         self.TELEGRAM_API_HASH = self.TELEGRAM_API_HASH or _read_secret("telegram_api_hash")
         self.TELEGRAM_BOT_TOKEN = self.TELEGRAM_BOT_TOKEN or _read_secret("telegram_bot_token")
+        self.TELEGRAM_SESSION_STRING = self.TELEGRAM_SESSION_STRING or _read_secret("telegram_session_string")
+        self.EVOLUTION_API_KEY = self.EVOLUTION_API_KEY or _read_secret("evolution_api_key")
         self.AMAZON_TAG = self.AMAZON_TAG or _read_secret("amazon_tag")
         self.MERCADOLIVRE_TAG = self.MERCADOLIVRE_TAG or _read_secret("mercadolivre_tag")
         self.SHOPEE_APP_ID = self.SHOPEE_APP_ID or _read_secret("shopee_app_id")

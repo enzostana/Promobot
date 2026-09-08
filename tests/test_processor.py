@@ -212,6 +212,94 @@ async def test_pipeline_survives_publisher_raising(async_db_session, test_settin
         text="Notebook Dell\nPor: R$ 2500\nhttps://www.amazon.com.br/dp/B08N5WRWNW"
     )
 
-    # process() must NOT raise; error is swallowed so the worker survives
+    # process() must NOT raise; a raising publisher is turned into a failed
+    # result so the worker survives and the failure is recorded.
     promo = await processor.process(raw_msg, db_session=async_db_session)
-    assert promo is None
+    assert promo is not None
+    assert promo.status == PromotionStatus.FAILED
+    assert "boom do publisher" in promo.error_message
+
+
+@pytest.mark.asyncio
+async def test_pipeline_multiple_publishers_two_publication_records(async_db_session, test_settings):
+    from tests.conftest import MockPublisher
+    tg_publisher = MockPublisher(should_succeed=True)
+    wa_publisher = MockPublisher(should_succeed=True)
+    processor = PromotionProcessor(
+        publishers=[tg_publisher, wa_publisher],
+        settings=test_settings
+    )
+
+    raw_msg = RawMessage(
+        id="msg-multi",
+        source="telegram",
+        source_message_id="700",
+        source_chat_id="@promo_deals",
+        text="Fone Bluetooth\nPor: R$ 199\nhttps://www.amazon.com.br/dp/B08N5WRWNW"
+    )
+
+    promo = await processor.process(raw_msg, db_session=async_db_session)
+    assert promo is not None
+    assert promo.status == PromotionStatus.PUBLISHED
+
+    pub_repo = PublicationRepository(async_db_session)
+    pubs = await pub_repo.list_publications()
+    assert len(pubs) == 2
+    assert all(p.status == "published" for p in pubs)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_one_publisher_fails_other_succeeds(async_db_session, test_settings):
+    from tests.conftest import MockPublisher
+    failing = MockPublisher(should_succeed=False)
+    works = MockPublisher(should_succeed=True)
+    processor = PromotionProcessor(
+        publishers=[failing, works],
+        settings=test_settings
+    )
+
+    raw_msg = RawMessage(
+        id="msg-partial",
+        source="telegram",
+        source_message_id="701",
+        source_chat_id="@promo_deals",
+        text="Geladeira 2 portas\nPor: R$ 2.799\nhttps://www.amazon.com.br/dp/B08N5WRWNW"
+    )
+
+    promo = await processor.process(raw_msg, db_session=async_db_session)
+    assert promo is not None
+    assert promo.status == PromotionStatus.PUBLISHED
+
+    pub_repo = PublicationRepository(async_db_session)
+    pubs = await pub_repo.list_publications()
+    assert len(pubs) == 2
+    statuses = {p.status for p in pubs}
+    assert statuses == {"published", "failed"}
+
+
+@pytest.mark.asyncio
+async def test_pipeline_all_publishers_fail_marks_failed(async_db_session, test_settings):
+    from tests.conftest import MockPublisher
+    fail_a = MockPublisher(should_succeed=False)
+    fail_b = MockPublisher(should_succeed=False)
+    processor = PromotionProcessor(
+        publishers=[fail_a, fail_b],
+        settings=test_settings
+    )
+
+    raw_msg = RawMessage(
+        id="msg-allfail",
+        source="telegram",
+        source_message_id="702",
+        source_chat_id="@promo_deals",
+        text="Microondas 20L\nPor: R$ 450\nhttps://www.amazon.com.br/dp/B08N5WRWNW"
+    )
+
+    promo = await processor.process(raw_msg, db_session=async_db_session)
+    assert promo is not None
+    assert promo.status == PromotionStatus.FAILED
+
+    pub_repo = PublicationRepository(async_db_session)
+    pubs = await pub_repo.list_publications()
+    assert len(pubs) == 2
+    assert all(p.status == "failed" for p in pubs)

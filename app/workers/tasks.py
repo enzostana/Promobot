@@ -6,6 +6,7 @@ from app.config.settings import Settings
 from app.core.models import RawMessage
 from app.core.processor import PromotionProcessor
 from app.adapters.telegram import TelegramPublisher
+from app.adapters.whatsapp import WhatsAppPublisher
 from app.workers.queue import RedisQueue
 from app.database.session import async_session_maker, init_db
 from app.core.runtime_settings import RuntimeOverrides
@@ -31,8 +32,11 @@ class Worker:
         self.settings = Settings()
         self.runtime_overrides = RuntimeOverrides()
         self.queue = queue or RedisQueue(self.settings)
-        publisher = TelegramPublisher(self.settings)
-        self.processor = processor or PromotionProcessor(publisher=publisher, settings=self.settings)
+        publishers = [TelegramPublisher(self.settings)]
+        if self.settings.WHATSAPP_TARGET_CHAT:
+            publishers.append(WhatsAppPublisher(self.settings))
+            logger.info("[WORKER] WhatsAppPublisher registrado (publicação via Evolution API).")
+        self.processor = processor or PromotionProcessor(publishers=publishers, settings=self.settings)
         self._running = False
 
     async def start(self) -> None:

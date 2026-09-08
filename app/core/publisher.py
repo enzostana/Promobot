@@ -9,6 +9,11 @@ class Publisher(ABC):
     (Telegram, WhatsApp, etc.).
     """
 
+    @property
+    def enabled(self) -> bool:
+        """Whether this publisher should run. Subclasses may gate on settings."""
+        return True
+
     @abstractmethod
     async def publish(self, promotion: Promotion, formatted_message: str) -> PublicationResult:
         """

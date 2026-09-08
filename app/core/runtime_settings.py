@@ -30,6 +30,9 @@ EDITABLE_KEYS: Dict[str, Tuple[str, str, bool, str]] = {
     "max_price": ("MAX_PRICE", "float", False, "Preço máximo (R$)"),
     # Destino / controle
     "telegram_target_chat": ("TELEGRAM_TARGET_CHAT", "str", False, "Canal de destino (chat_id)"),
+    "whatsapp_target_chat": ("WHATSAPP_TARGET_CHAT", "str", False, "Grupo/contato WhatsApp destino (JID, ex.: 120363410512355040@g.us)"),
+    "whatsapp_enabled": ("WHATSAPP_ENABLED", "bool", False, "Publicar também no WhatsApp ('1' ligado, '0' desligado)"),
+    "whatsapp_with_image": ("WHATSAPP_WITH_IMAGE", "bool", False, "Enviar imagem da oferta no WhatsApp ('1' sim, '0' só texto)"),
     "bot_paused": ("BOT_PAUSED", "bool", False, "Pausar o bot ('1' pausado, '0' ativo)"),
 }
 
@@ -40,7 +43,7 @@ SECTIONS: Dict[str, List[str]] = {
         "allowed_categories", "blocked_categories", "min_discount_percent",
         "min_price", "max_price",
     ],
-    "destinos": ["telegram_target_chat", "bot_paused"],
+    "destinos": ["telegram_target_chat", "whatsapp_target_chat", "whatsapp_enabled", "whatsapp_with_image", "bot_paused"],
 }
 
 SECRET_KEYS: set = {k for k, (_, _, secret, _) in EDITABLE_KEYS.items() if secret}

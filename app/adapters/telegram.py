@@ -61,8 +61,12 @@ class TelegramAdapter(MessageSource):
 
         await self.client.connect()
 
-        # Check if authorized, if not and bot token is available, login as bot
+        # Check if authorized, if not authenticate as user (session) or fall back to bot token
         if not await self.client.is_user_authorized():
+            if self.settings.TELEGRAM_SESSION_STRING:
+                logger.error("[TELEGRAM] Sessão de usuário inválida/expirada (TELEGRAM_SESSION_STRING definido). Não será usado o bot como fallback.")
+                await self.client.disconnect()
+                return
             if self.settings.TELEGRAM_BOT_TOKEN:
                 logger.info("[TELEGRAM] Autenticando com TELEGRAM_BOT_TOKEN...")
                 await self.client.start(bot_token=self.settings.TELEGRAM_BOT_TOKEN)

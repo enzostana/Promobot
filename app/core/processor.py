@@ -1,12 +1,13 @@
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import (
     Promotion,
     PromotionStatus,
     RawMessage,
+    PublicationResult,
 )
 from app.core.parser import PromotionParser
 from app.affiliates.registry import AffiliateRegistry
@@ -38,6 +39,7 @@ class PromotionProcessor:
         promotion_filter: Optional[PromotionFilter] = None,
         formatter: Optional[PromotionFormatter] = None,
         publisher: Optional[Publisher] = None,
+        publishers: Optional[List[Publisher]] = None,
         settings: Optional[Settings] = None,
     ):
         self.settings = settings or get_settings()
@@ -46,7 +48,11 @@ class PromotionProcessor:
         self.deduplicator = deduplicator or Deduplicator(settings=self.settings)
         self.filters = promotion_filter or PromotionFilter(self.settings)
         self.formatter = formatter or PromotionFormatter()
-        self.publisher = publisher
+        self.publishers: List[Publisher] = []
+        if publisher is not None:
+            self.publishers.append(publisher)
+        if publishers:
+            self.publishers.extend(publishers)
 
     def refresh_runtime(self, settings: Optional[Settings] = None) -> None:
         """
@@ -167,15 +173,31 @@ class PromotionProcessor:
             formatted_message = self.formatter.format(promo)
 
             # 7. Publication
-            pub_result = None
-            if self.publisher:
-                pub_result = await self.publisher.publish(promo, formatted_message)
-                if pub_result.success:
+            pub_results: List[PublicationResult] = []
+            active_publishers = [p for p in self.publishers if getattr(p, "enabled", True)]
+            if active_publishers:
+                for p in active_publishers:
+                    try:
+                        result = await p.publish(promo, formatted_message)
+                        pub_results.append(result)
+                    except Exception as e:
+                        logger.error(f"[PUBLISHER] Falha em {getattr(p, '__class__', type(p)).__name__}: {e}", exc_info=True)
+                        pub_results.append(PublicationResult(
+                            success=False,
+                            platform="whatsapp" if "whatsapp" in type(p).__name__.lower() else "telegram",
+                            target_chat_id="",
+                            error_message=str(e)
+                        ))
+
+                successes = [r for r in pub_results if r.success]
+                if successes:
                     promo.status = PromotionStatus.PUBLISHED
-                    promo.published_at = pub_result.published_at or datetime.now(timezone.utc)
+                    promo.published_at = successes[0].published_at or datetime.now(timezone.utc)
                 else:
                     promo.status = PromotionStatus.FAILED
-                    promo.error_message = pub_result.error_message
+                    promo.error_message = "; ".join(
+                        r.error_message for r in pub_results if r.error_message
+                    ) or "Falha em todas as publicações."
             else:
                 # If no publisher injected (e.g. testing), mark published
                 promo.status = PromotionStatus.PUBLISHED
@@ -198,17 +220,18 @@ class PromotionProcessor:
                     db_session.add(aff_link)
                     await db_session.flush()
 
-                # Save publication log
-                if pub_repo and pub_result:
-                    await pub_repo.create(
-                        promotion_id=promo.id,
-                        platform=pub_result.platform,
-                        target_chat_id=pub_result.target_chat_id,
-                        target_message_id=pub_result.target_message_id,
-                        formatted_content=formatted_message,
-                        status="published" if pub_result.success else "failed",
-                        error_message=pub_result.error_message
-                    )
+                # Save publication log (one per publisher result)
+                if pub_repo:
+                    for pr in pub_results:
+                        await pub_repo.create(
+                            promotion_id=promo.id,
+                            platform=pr.platform,
+                            target_chat_id=pr.target_chat_id,
+                            target_message_id=pr.target_message_id,
+                            formatted_content=formatted_message,
+                            status="published" if pr.success else "failed",
+                            error_message=pr.error_message
+                        )
 
             # 9. Record in deduplication cache
             if promo.id and promo.status == PromotionStatus.PUBLISHED:

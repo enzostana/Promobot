@@ -186,3 +186,47 @@ async def test_handle_event_downloads_photo(tmp_path, adapter, mock_queue):
 def test_missing_api_creds_does_not_init_client():
     adapter = TelegramAdapter(settings=Settings(TELEGRAM_API_ID=None, TELEGRAM_API_HASH=None))
     assert adapter._init_client() is None
+
+
+def test_settings_reads_session_string_secret(tmp_path, monkeypatch):
+    secret_file = tmp_path / "telegram_session_string"
+    secret_file.write_text("1AZ_secret_value_example")
+    monkeypatch.setattr("app.config.settings._read_secret", lambda name: secret_file.read_text().strip() if name == "telegram_session_string" else None)
+
+    settings = Settings(TELEGRAM_API_ID=1, TELEGRAM_API_HASH="h", TELEGRAM_SESSION_STRING=None)
+    assert settings.TELEGRAM_SESSION_STRING == "1AZ_secret_value_example"
+
+
+@pytest.mark.asyncio
+async def test_start_with_invalid_user_session_does_not_fallback_to_bot(adapter, monkeypatch):
+    client = AsyncMock()
+    client.connect = AsyncMock()
+    client.is_user_authorized = AsyncMock(return_value=False)
+    client.start = AsyncMock()
+    client.on = lambda *a, **k: (lambda f: f)
+    monkeypatch.setattr(adapter, "_init_client", lambda: client)
+
+    adapter.settings.TELEGRAM_BOT_TOKEN = "123:fake_token"
+    adapter.settings.TELEGRAM_SESSION_STRING = "1AZ_invalid"
+
+    await adapter.start()
+
+    client.start.assert_not_awaited()
+    client.disconnect.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_start_falls_back_to_bot_without_session_string(adapter, monkeypatch):
+    client = AsyncMock()
+    client.connect = AsyncMock()
+    client.is_user_authorized = AsyncMock(return_value=False)
+    client.start = AsyncMock()
+    client.on = lambda *a, **k: (lambda f: f)
+    monkeypatch.setattr(adapter, "_init_client", lambda: client)
+
+    adapter.settings.TELEGRAM_BOT_TOKEN = "123:fake_token"
+    adapter.settings.TELEGRAM_SESSION_STRING = None
+
+    await adapter.start()
+
+    client.start.assert_awaited_once()

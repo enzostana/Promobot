@@ -28,6 +28,36 @@ def test_amazon_provider_short_url():
     assert "tag=minhatag-20" in converted
 
 
+def test_amazon_provider_link_amazon_bare_asin():
+    provider = AmazonProvider(tag="minhatag-20")
+    url = "https://link.amazon/B0hJNGE2k"
+
+    assert provider.can_handle(url) is True
+
+    converted = provider.convert(url)
+    assert "https://link.amazon/B0hJNGE2k" in converted
+    assert "tag=minhatag-20" in converted
+
+
+def test_amazon_provider_no_tag_keeps_canonical_link():
+    provider = AmazonProvider(tag=None)
+
+    with_tag = "https://link.amazon/B0hJNGE2k?tag=oldtag"
+    stripped = provider.convert(with_tag)
+    assert "tag=" not in stripped
+    assert "https://link.amazon/B0hJNGE2k" in stripped
+
+    # Without a tag, short links just lose tracking params (no canonicalization)
+    bare = provider.convert("https://link.amazon/B0hJNGE2k?tag=something")
+    assert "tag=" not in bare
+    assert "https://link.amazon/B0hJNGE2k" in bare
+
+    # Valid 10-char ASIN is canonicalized even without a tag
+    canonical = provider.convert("https://www.amazon.com.br/dp/B08N5WRWNW?ref=old")
+    assert "https://www.amazon.com.br/dp/B08N5WRWNW" in canonical
+    assert "ref=" not in canonical
+
+
 def test_mercadolivre_provider():
     provider = MercadoLivreProvider(tag="meu_afiliado_meli")
     url = "https://produto.mercadolivre.com.br/MLB-987654321-smartphone-x/_JM?matt_tool=outro&utm_source=telegram"
