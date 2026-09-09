@@ -235,41 +235,41 @@ nav.main a.active {{ color:var(--accent); background:var(--chip); }}
 .search {{ display:inline-flex; align-items:center; gap:8px; background:var(--chip); border:1px solid var(--border); border-radius:12px; padding:6px 10px; }}
 .search input {{ border:0; outline:0; background:transparent; font:inherit; width:220px; }}
 .search button {{ border:0; background:transparent; cursor:pointer; font-weight:700; color:var(--accent); }}
-.controle {{ background:var(--text); color:#fff !important; padding:8px 14px; border-radius:10px; font-weight:700; font-size:.9rem; white-space:nowrap; }}
+.controle {{ background:var(--accent); color:#fff !important; padding:8px 14px; border-radius:10px; font-weight:700; font-size:.9rem; white-space:nowrap; }}
 .controle:hover {{ opacity:.9; text-decoration:none; }}
-.hero {{ padding:34px 0 22px; }}
-.hero h1 {{ font-size:2rem; font-weight:800; letter-spacing:-.5px; }}
-.hero p {{ color:var(--text-2); margin-top:6px; max-width:640px; }}
-.chips {{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 6px; }}
-.chips .chip {{ background:var(--surface); border:1px solid var(--border); color:var(--text-2); padding:6px 12px; border-radius:999px; font-size:.85rem; font-weight:600; }}
+.hero {{ padding:24px 0 14px; }}
+.hero h1 {{ font-size:1.6rem; font-weight:800; letter-spacing:-.5px; }}
+.hero p {{ color:var(--text-2); margin-top:6px; max-width:640px; font-size:.95rem; }}
+.chips {{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 4px; }}
+.chips .chip {{ background:var(--surface); border:1px solid var(--border); color:var(--text-2); padding:5px 11px; border-radius:999px; font-size:.8rem; font-weight:600; }}
 .chips .chip:hover {{ border-color:var(--accent); color:var(--accent); text-decoration:none; }}
-.section-head {{ display:flex; align-items:baseline; justify-content:space-between; margin:26px 0 14px; }}
-.section-head h2 {{ font-size:1.25rem; font-weight:800; }}
-.section-head .more {{ color:var(--muted); font-weight:600; font-size:.9rem; }}
-.grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:16px; }}
-.promo-card {{ background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:var(--shadow); display:flex; flex-direction:column; transition:transform .15s ease,box-shadow .15s ease; }}
+.section-head {{ display:flex; align-items:baseline; justify-content:space-between; margin:18px 0 10px; }}
+.section-head h2 {{ font-size:1.1rem; font-weight:800; }}
+.section-head .more {{ color:var(--muted); font-weight:600; font-size:.85rem; }}
+.grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; }}
+.promo-card {{ background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:var(--shadow); display:flex; flex-direction:column; transition:transform .15s ease,box-shadow .15s ease; }}
 .promo-card:hover {{ transform:translateY(-2px); box-shadow:0 4px 12px rgba(16,24,40,.1); }}
 .card-top {{ position:relative; }}
-.card-media-wrap {{ aspect-ratio:4/3; background:var(--chip); display:flex; align-items:center; justify-content:center; }}
+.card-media-wrap {{ aspect-ratio:1/1; background:var(--chip); display:flex; align-items:center; justify-content:center; }}
 .card-media {{ width:100%; height:100%; }}
 .card-media img {{ width:100%; height:100%; object-fit:cover; display:block; }}
 .card-media.broken {{ display:none; }}
 .card-media.no-img {{ background:linear-gradient(135deg,var(--accent),var(--accent-2)); display:flex; align-items:center; justify-content:center; }}
-.img-fallback {{ font-size:2.2rem; font-weight:800; color:#fff; }}
-.badge.off {{ position:absolute; top:10px; right:10px; background:var(--accent); color:#fff; font-weight:800; font-size:.8rem; padding:4px 10px; border-radius:999px; }}
-.card-body {{ padding:12px 14px 14px; display:flex; flex-direction:column; gap:8px; flex:1; }}
-.card-title {{ font-size:.95rem; font-weight:600; line-height:1.35; min-height:2.6em; }}
+.img-fallback {{ font-size:1.8rem; font-weight:800; color:#fff; }}
+.badge.off {{ position:absolute; top:8px; right:8px; background:var(--accent); color:#fff; font-weight:800; font-size:.72rem; padding:3px 8px; border-radius:999px; }}
+.card-body {{ padding:10px 12px 12px; display:flex; flex-direction:column; gap:6px; flex:1; }}
+.card-title {{ font-size:.85rem; font-weight:600; line-height:1.35; min-height:2.3em; }}
 .card-title a {{ color:var(--text); }}
 .card-title a:hover {{ color:var(--accent); text-decoration:none; }}
 .price {{ margin-top:auto; }}
-.price .de {{ color:var(--muted); text-decoration:line-through; font-size:.85rem; display:block; }}
-.price strong {{ font-size:1.15rem; font-weight:800; color:var(--text); }}
-.meta {{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; }}
-.pill {{ font-size:.72rem; font-weight:700; padding:3px 8px; border-radius:999px; background:var(--chip); color:var(--text-2); }}
+.price .de {{ color:var(--muted); text-decoration:line-through; font-size:.78rem; display:block; }}
+.price strong {{ font-size:1rem; font-weight:800; color:var(--text); }}
+.meta {{ display:flex; flex-wrap:wrap; gap:5px; align-items:center; }}
+.pill {{ font-size:.68rem; font-weight:700; padding:2px 7px; border-radius:999px; background:var(--chip); color:var(--text-2); }}
 .pill.store {{ color:var(--green); background:#e8f5ee; }}
 .pill.cat {{ color:var(--accent); background:#fff0ea; }}
-.when {{ margin-left:auto; color:var(--muted); font-size:.75rem; }}
-.btn-ver {{ text-align:center; background:var(--accent); color:#fff; font-weight:700; padding:9px; border-radius:10px; }}
+.when {{ margin-left:auto; color:var(--muted); font-size:.7rem; }}
+.btn-ver {{ text-align:center; background:var(--accent); color:#fff; font-weight:700; padding:7px; border-radius:9px; font-size:.85rem; }}
 .btn-ver:hover {{ background:#c22e0a; text-decoration:none; }}
 .empty {{ padding:40px; text-align:center; color:var(--muted); background:var(--surface); border:1px dashed var(--border); border-radius:16px; }}
 .pagination {{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:26px 0; }}

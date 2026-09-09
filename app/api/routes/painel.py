@@ -173,17 +173,60 @@ PAINEL_HTML = r'''<!DOCTYPE html>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
+            --bg-gradient: linear-gradient(135deg, #fafbfc 0%, #eef1f6 100%);
+            --surface: #ffffff; --surface-2: #f0f2f7;
+            --border: #e6e8ee; --border-strong: #d4d8e1;
+            --text-primary: #111318; --text-secondary: #3f4656;
+            --text-muted: #5b6272; --text-faint: #8b90a0;
+            --accent: #e2350d; --accent-strong: #c22e0a; --accent-2: #ff7a1a;
+            --green: #14823c; --red: #d92d20; --amber: #b54708;
+            --hover: rgba(16,24,40,.05);
+            --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08);
+            --btn-primary-hover: #a82709;
+            --btn-danger-bg: #fdecea; --btn-danger-border: #f0b9b3; --btn-danger-text: #b42318;
+            --btn-success-bg: #e8f5ee; --btn-success-border: #bfe3d0; --btn-success-text: #14823c;
+            --b-green-bg: #e8f5ee;   --b-green-text: #14823c;
+            --b-red-bg: #fdecea;     --b-red-text: #d92d20;
+            --b-amber-bg: #fff4e5;   --b-amber-text: #b54708;
+            --msg-ok-bg: #e8f5ee; --msg-ok-text: #14823c; --msg-ok-border: #bfe3d0;
+            --msg-err-bg: #fdecea; --msg-err-text: #b42318; --msg-err-border: #f0b9b3;
+        }
+        html[data-theme="dark"] {
             --bg-gradient: linear-gradient(135deg, #020617 0%, #0f172a 100%);
             --surface: #0f172a; --surface-2: #1e293b;
             --border: #1e293b; --border-strong: #334155;
             --text-primary: #f1f5f9; --text-secondary: #cbd5e1;
             --text-muted: #94a3b8; --text-faint: #64748b;
-            --accent: #60a5fa; --accent-strong: #3b82f6;
+            --accent: #60a5fa; --accent-strong: #3b82f6; --accent-2: #93c5fd;
             --green: #4ade80; --red: #f87171; --amber: #fbbf24;
+            --hover: rgba(255,255,255,.03);
+            --shadow: 0 1px 3px rgba(0,0,0,.3);
+            --btn-primary-hover: #2563eb;
+            --btn-danger-bg: #450a0a; --btn-danger-border: #991b1b; --btn-danger-text: #fecaca;
+            --btn-success-bg: #14532d; --btn-success-border: #166534; --btn-success-text: #bbf7d0;
+            --b-green-bg: #052e16;   --b-green-text: var(--green);
+            --b-red-bg: #450a0a;     --b-red-text: var(--red);
+            --b-amber-bg: #451a03;   --b-amber-text: var(--amber);
+            --msg-ok-bg: #052e16; --msg-ok-text: var(--green); --msg-ok-border: #166534;
+            --msg-err-bg: #450a0a; --msg-err-text: #fecaca; --msg-err-border: #991b1b;
         }
-        html { color-scheme: dark; }
+        html { color-scheme: light; }
+        html[data-theme="dark"] { color-scheme: dark; }
+
+        .theme-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 38px; height: 38px; border-radius: 12px; cursor: pointer;
+            background: var(--surface-2); border: 1.5px solid var(--border-strong);
+            color: var(--text-secondary); transition: all 0.15s; flex-shrink: 0;
+        }
+        .theme-btn:hover { background: var(--border-strong); color: var(--text-primary); }
+        .theme-btn svg { width: 18px; height: 18px; }
+        .theme-btn .ic-moon { display: none; }
+        html[data-theme="dark"] .theme-btn .ic-moon { display: inline-block; }
+        html[data-theme="dark"] .theme-btn .ic-sun { display: none; }
+
         body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg-gradient); min-height: 100vh; color: var(--text-secondary); }
-        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); overflow: hidden; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
         .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
         .card-body { padding: 20px; }
         label { display: block; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
@@ -196,17 +239,17 @@ PAINEL_HTML = r'''<!DOCTYPE html>
         .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; font-size: 0.8125rem; font-weight: 600; border: 1.5px solid var(--border-strong); background: var(--surface-2); color: var(--text-secondary); transition: all 0.15s; cursor: pointer; }
         .btn:hover { background: var(--border-strong); }
         .btn-primary { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
-        .btn-primary:hover { background: #2563eb; }
-        .btn-danger { background: #7f1d1d; border-color: #991b1b; color: #fecaca; }
-        .btn-success { background: #14532d; border-color: #166534; color: #bbf7d0; }
+        .btn-primary:hover { background: var(--btn-primary-hover); }
+        .btn-danger { background: var(--btn-danger-bg); border-color: var(--btn-danger-border); color: var(--btn-danger-text); }
+        .btn-success { background: var(--btn-success-bg); border-color: var(--btn-success-border); color: var(--btn-success-text); }
         .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; }
-        .badge-green { background: #052e16; color: var(--green); }
-        .badge-red { background: #450a0a; color: var(--red); }
-        .badge-amber { background: #451a03; color: var(--amber); }
+        .badge-green { background: var(--b-green-bg); color: var(--b-green-text); }
+        .badge-red { background: var(--b-red-bg); color: var(--b-red-text); }
+        .badge-amber { background: var(--b-amber-bg); color: var(--b-amber-text); }
         .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
         .msg { display: none; margin-top: 12px; padding: 8px 12px; border-radius: 8px; font-size: 0.8125rem; }
-        .msg-ok { display: block; background: #052e16; color: var(--green); border: 1px solid #166534; }
-        .msg-err { display: block; background: #450a0a; color: #fecaca; border: 1px solid #991b1b; }
+        .msg-ok { display: block; background: var(--msg-ok-bg); color: var(--msg-ok-text); border: 1px solid var(--msg-ok-border); }
+        .msg-err { display: block; background: var(--msg-err-bg); color: var(--msg-err-text); border: 1px solid var(--msg-err-border); }
         .hint { font-size: 0.75rem; color: var(--text-faint); margin-top: 4px; }
         .pill-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background: var(--surface-2); border: 1.5px solid var(--border-strong); color: var(--text-secondary); }
         .grid2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -221,6 +264,10 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                 <p class="text-sm font-medium" style="color:var(--text-muted);">Gestão do PromoBot — tags, filtros e destino</p>
             </div>
             <div class="flex items-center gap-3">
+                <button id="theme-btn" class="theme-btn" onclick="toggleTheme()" title="Alternar tema" aria-label="Alternar tema">
+                    <svg class="ic-sun" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36l-1.42 1.42M7.06 16.94l-1.42 1.42M18.36 18.36l-1.42-1.42M7.06 7.06L5.64 5.64M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+                    <svg class="ic-moon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                </button>
                 <span id="bot-pill" class="pill-status"><span class="dot" style="background:var(--text-faint);"></span>carregando…</span>
                 <a href="/dashboard" class="btn">← Dashboard</a>
             </div>
@@ -433,6 +480,22 @@ PAINEL_HTML = r'''<!DOCTYPE html>
     </div>
 
     <script>
+        function applyTheme(t) {
+            t = t || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+            try { localStorage.setItem('promobot-theme', t); } catch (e) {}
+        }
+        function toggleTheme() {
+            var cur = document.documentElement.getAttribute('data-theme') || 'light';
+            applyTheme(cur === 'dark' ? 'light' : 'dark');
+        }
+        (function initTheme() {
+            var t;
+            try { t = localStorage.getItem('promobot-theme'); } catch (e) {}
+            if (!t) { t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'; }
+            applyTheme(t);
+        })();
+
         const SECRET_KEYS = ["amazon_tag","mercadolivre_tag","shopee_tag","shopee_app_id","shopee_api_app_id","shopee_api_secret","mel_api_client_id","mel_api_client_secret","mel_refresh_token"];
         function showMsg(id, ok, text) {
             const el = document.getElementById(id);

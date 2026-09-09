@@ -18,64 +18,99 @@ HUB_HTML = r'''<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PromoBot</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>PromoBot — Controle</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-gradient: linear-gradient(135deg, #020617 0%, #0f172a 100%);
-            --surface: #0f172a; --surface-2: #1e293b;
-            --border: #1e293b; --border-strong: #334155;
-            --text-primary: #f1f5f9; --text-secondary: #cbd5e1;
-            --text-muted: #94a3b8; --text-faint: #64748b;
-            --accent: #60a5fa; --accent-strong: #3b82f6;
-            --green: #4ade80; --red: #f87171; --amber: #fbbf24;
+            --bg: #f7f8fa; --surface: #ffffff; --border: #e6e8ee; --text: #111318;
+            --text-2: #4b5162; --muted: #8b90a0; --accent: #e2350d; --accent-2: #ff7a1a;
+            --green: #14823c; --red: #d92d20; --amber: #b54708;
+            --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08);
         }
-        html { color-scheme: dark; }
-        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg-gradient); min-height: 100vh; color: var(--text-secondary); }
-        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); overflow: hidden; transition: all 0.2s ease; }
-        .card:hover { transform: translateY(-4px); border-color: var(--accent-strong); }
-        .pill-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background: var(--surface-2); border: 1.5px solid var(--border-strong); color: var(--text-secondary); }
+        html { color-scheme: light; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg); min-height: 100vh; color: var(--text-2);
+            margin: 0; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 24px; box-sizing: border-box;
+        }
+        .wrap { width: 100%; max-width: 720px; }
+        header { text-align: center; margin-bottom: 28px; }
+        .logo-badge {
+            width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 12px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 8px 20px rgba(226,53,13,.25);
+        }
+        .logo-badge svg { width: 28px; height: 28px; color: #fff; }
+        h1 { margin: 0; font-size: 1.75rem; font-weight: 800; color: var(--text); letter-spacing: -.4px; }
+        header p { margin: 4px 0 0; font-size: .9rem; color: var(--muted); }
+        .cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 14px; margin-bottom: 20px; }
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 16px; padding: 20px; box-shadow: var(--shadow);
+            color: inherit; text-decoration: none; transition: transform .15s ease, border-color .15s ease;
+        }
+        .card:hover { transform: translateY(-3px); border-color: var(--accent); }
+        .card h2 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 700; color: var(--text); }
+        .card p { margin: 0; font-size: .83rem; color: var(--muted); line-height: 1.45; }
+        .status {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+            padding: 14px 16px; display: flex; flex-wrap: wrap; align-items: center;
+            justify-content: space-between; gap: 10px; box-shadow: var(--shadow);
+        }
+        .status-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+        .status-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+        .pill-status {
+            display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
+            border-radius: 999px; font-size: .78rem; font-weight: 700;
+            background: #f0f2f7; border: 1.5px solid var(--border); color: var(--text-2);
+        }
         .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .status-meta small { color: var(--muted); font-size: .78rem; }
+        .back { display: block; text-align: center; margin-top: 18px; font-size: .85rem; font-weight: 600; color: var(--muted); text-decoration: none; }
+        .back:hover { color: var(--accent); }
+        hr.sep { border: 0; border-top: 1px solid var(--border); margin: 22px 0 18px; }
     </style>
 </head>
-<body class="p-6 flex flex-col items-center justify-center min-h-screen">
-    <div class="w-full max-w-2xl">
-        <header class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-500/20 mb-4">
-                <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+<body>
+    <div class="wrap">
+        <header>
+            <div class="logo-badge">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
                 </svg>
             </div>
-            <h1 class="text-3xl font-extrabold" style="color:var(--text-primary);">PromoBot</h1>
-            <p class="text-sm font-medium mt-1" style="color:var(--text-muted);">Centro de controle</p>
+            <h1>PromoBot</h1>
+            <p>Centro de controle</p>
         </header>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
-            <a href="/dashboard" class="card p-6 block">
-                <h2 class="text-lg font-bold mb-1" style="color:var(--text-primary);">Dashboard</h2>
-                <p class="text-sm" style="color:var(--text-muted);">Promoções, fontes e publicações em tempo real.</p>
+        <div class="cards">
+            <a href="/dashboard" class="card">
+                <h2>Dashboard</h2>
+                <p>Promoções, fontes e publicações em tempo real.</p>
             </a>
-            <a href="/painel" class="card p-6 block">
-                <h2 class="text-lg font-bold mb-1" style="color:var(--text-primary);">Painel</h2>
-                <p class="text-sm" style="color:var(--text-muted);">Controle do bot: tags, filtros, destino e ações.</p>
+            <a href="/painel" class="card">
+                <h2>Painel</h2>
+                <p>Controle do bot: tags, filtros, destino e ações.</p>
             </a>
-            <a href="/" class="card p-6 block">
-                <h2 class="text-lg font-bold mb-1" style="color:var(--text-primary);">Ver site</h2>
-                <p class="text-sm" style="color:var(--text-muted);">Página pública de ofertas — Rufino Promo.</p>
+            <a href="/" class="card">
+                <h2>Ver site</h2>
+                <p>Página pública de ofertas — Rufino Promo.</p>
             </a>
         </div>
 
-        <div class="card">
-            <div class="p-4 flex flex-wrap items-center justify-between gap-3">
-                <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--text-muted);">Status do worker</span>
-                <div class="flex flex-wrap items-center gap-3">
-                    <span id="hub-pill" class="pill-status"><span class="dot" style="background:var(--text-faint);"></span>carregando…</span>
-                    <span class="text-xs" style="color:var(--text-faint);" id="hub-meta">—</span>
-                </div>
+        <div class="status">
+            <span class="status-label">Status do worker</span>
+            <div class="status-meta">
+                <span id="hub-pill" class="pill-status"><span class="dot" style="background:var(--muted);"></span>carregando…</span>
+                <small id="hub-meta">—</small>
             </div>
         </div>
+
+        <hr class="sep">
+        <a class="back" href="/">← Voltar para o site</a>
     </div>
 
     <script>

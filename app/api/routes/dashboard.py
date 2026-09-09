@@ -57,6 +57,30 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
     </script>
     <style>
         :root {
+            --bg-gradient: linear-gradient(135deg, #fafbfc 0%, #eef1f6 100%);
+            --surface: #ffffff;
+            --surface-2: #f0f2f7;
+            --border: #e6e8ee;
+            --border-strong: #d4d8e1;
+            --text-primary: #111318;
+            --text-secondary: #3f4656;
+            --text-muted: #5b6272;
+            --text-faint: #8b90a0;
+            --accent: #e2350d;
+            --accent-strong: #c22e0a;
+            --accent-2: #ff7a1a;
+            --green: #14823c;
+            --red: #d92d20;
+            --amber: #b54708;
+            --hover: rgba(16,24,40,.045);
+            --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08);
+            --b-green-bg: #e8f5ee;   --b-green-text: #14823c;
+            --b-amber-bg: #fff4e5;   --b-amber-text: #b54708;
+            --b-gray-bg: #f0f2f7;    --b-gray-text: #5b6272;
+            --b-red-bg: #fdecea;     --b-red-text: #d92d20;
+            --b-blue-bg: #fff0ea;    --b-blue-text: #c22e0a;
+        }
+        html[data-theme="dark"] {
             --bg-gradient: linear-gradient(135deg, #020617 0%, #0f172a 100%);
             --surface: #0f172a;
             --surface-2: #1e293b;
@@ -68,11 +92,33 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             --text-faint: #64748b;
             --accent: #60a5fa;
             --accent-strong: #3b82f6;
+            --accent-2: #93c5fd;
             --green: #4ade80;
             --red: #f87171;
+            --amber: #fbbf24;
+            --hover: rgba(255,255,255,.03);
+            --shadow: 0 1px 3px rgba(0,0,0,.3);
+            --b-green-bg: #052e16;   --b-green-text: var(--green);
+            --b-amber-bg: #451a03;   --b-amber-text: #fbbf24;
+            --b-gray-bg: var(--surface-2); --b-gray-text: var(--text-muted);
+            --b-red-bg: #450a0a;     --b-red-text: var(--red);
+            --b-blue-bg: #172554;    --b-blue-text: var(--accent);
         }
-        html { color-scheme: dark; }
+        html { color-scheme: light; }
+        html[data-theme="dark"] { color-scheme: dark; }
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+        .theme-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 38px; height: 38px; border-radius: 12px; cursor: pointer;
+            background: var(--surface-2); border: 1.5px solid var(--border-strong);
+            color: var(--text-secondary); transition: all 0.15s; flex-shrink: 0;
+        }
+        .theme-btn:hover { background: var(--border-strong); color: var(--text-primary); }
+        .theme-btn svg { width: 18px; height: 18px; }
+        .theme-btn .ic-moon { display: none; }
+        html[data-theme="dark"] .theme-btn .ic-moon { display: inline-block; }
+        html[data-theme="dark"] .theme-btn .ic-sun { display: none; }
 
         .chip {
             display: inline-flex; align-items: center; gap: 6px;
@@ -83,11 +129,11 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
         }
         .chip-default { background: var(--surface-2); color: var(--text-muted); border-color: var(--border-strong); }
         .chip-default:hover { background: var(--border-strong); color: var(--text-secondary); }
-        .chip-active { background: #2563eb !important; color: #fff !important; border-color: #1d4ed8 !important; box-shadow: 0 1px 3px rgba(37,99,235,0.3); }
+        .chip-active { background: var(--accent-strong) !important; color: #fff !important; border-color: var(--accent-strong) !important; box-shadow: 0 1px 3px rgba(226,53,13,0.3); }
 
         .card {
             background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3); overflow: hidden;
+            box-shadow: var(--shadow); overflow: hidden;
         }
 
         .tab-btn {
@@ -96,7 +142,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             border-bottom: 2.5px solid transparent;
             color: var(--text-faint); background: transparent;
         }
-        .tab-btn:hover { color: var(--text-muted); background: rgba(255,255,255,0.02); }
+        .tab-btn:hover { color: var(--text-muted); background: var(--hover); }
         .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent-strong); background: var(--surface); }
 
         .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -112,18 +158,18 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             border-bottom: 1px solid var(--border);
         }
         tbody tr { transition: background 0.1s; }
-        tbody tr:hover { background: rgba(255,255,255,0.02); }
+        tbody tr:hover { background: var(--hover); }
 
         .badge {
             display: inline-flex; align-items: center; gap: 4px;
             padding: 3px 10px; border-radius: 9999px;
             font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em;
         }
-        .badge-green { background: #052e16; color: var(--green); }
-        .badge-amber { background: #451a03; color: #fbbf24; }
-        .badge-gray  { background: var(--surface-2); color: var(--text-muted); }
-        .badge-red   { background: #450a0a; color: var(--red); }
-        .badge-blue  { background: #172554; color: var(--accent); }
+        .badge-green { background: var(--b-green-bg); color: var(--b-green-text); }
+        .badge-amber { background: var(--b-amber-bg); color: var(--b-amber-text); }
+        .badge-gray  { background: var(--b-gray-bg); color: var(--b-gray-text); }
+        .badge-red   { background: var(--b-red-bg); color: var(--b-red-text); }
+        .badge-blue  { background: var(--b-blue-bg); color: var(--b-blue-text); }
         .badge-dot {
             width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
         }
@@ -162,7 +208,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
         <header class="mb-8">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div class="flex items-center gap-4">
-                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#e2350d] to-[#ff7a1a] flex items-center justify-center shadow-[0_8px_20px_rgba(226,53,13,.25)]">
                         <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
                         </svg>
@@ -173,6 +219,10 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
+                    <button id="theme-btn" class="theme-btn" onclick="toggleTheme()" title="Alternar tema" aria-label="Alternar tema">
+                        <svg class="ic-sun" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36l-1.42 1.42M7.06 16.94l-1.42 1.42M18.36 18.36l-1.42-1.42M7.06 7.06L5.64 5.64M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+                        <svg class="ic-moon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                    </button>
                     <a href="/painel" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-150" style="background: var(--surface-2); color: var(--text-secondary); border: 1.5px solid var(--border-strong);">Painel</a>
                     <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold badge-green">
                         <span class="badge-dot"></span>
@@ -209,7 +259,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             <div id="table-container" class="p-3 sm:p-5">
                 <div class="flex justify-center py-16">
                     <div class="flex flex-col items-center gap-3">
-                        <svg class="animate-spin h-7 w-7 text-brand-600" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        <svg class="animate-spin h-7 w-7 text-[#e2350d]" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                         <span class="text-sm font-medium" style="color:var(--text-muted);">Carregando...</span>
                     </div>
                 </div>
@@ -222,6 +272,22 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
     </div>
 
     <script>
+        function applyTheme(t) {
+            t = t || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+            try { localStorage.setItem('promobot-theme', t); } catch (e) {}
+        }
+        function toggleTheme() {
+            var cur = document.documentElement.getAttribute('data-theme') || 'light';
+            applyTheme(cur === 'dark' ? 'light' : 'dark');
+        }
+        (function initTheme() {
+            var t;
+            try { t = localStorage.getItem('promobot-theme'); } catch (e) {}
+            if (!t) { t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'; }
+            applyTheme(t);
+        })();
+
         document.body.addEventListener('htmx:afterSwap', function(e) {
             if (e.detail.target.id === 'table-container') {
                 e.detail.target.classList.add('fade-in');
