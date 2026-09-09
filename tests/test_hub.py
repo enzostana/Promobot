@@ -19,7 +19,7 @@ async def test_hub_requires_auth(async_db_session):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        res = await client.get("/")
+        res = await client.get("/hub")
         assert res.status_code == 401
 
 
@@ -53,10 +53,11 @@ async def test_hub_navigates_to_painel_and_dashboard(async_db_session):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        res = await client.get("/", headers={"Authorization": auth})
+        res = await client.get("/hub", headers={"Authorization": auth})
         assert res.status_code == 200
         assert 'href="/dashboard"' in res.text
         assert 'href="/painel"' in res.text
+        assert 'href="/"' in res.text
         assert "PromoBot" in res.text
 
     painel._get_worker_status = painel._get_worker_status_backup

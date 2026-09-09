@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.database.models import PromotionModel, PromotionSourceModel
@@ -71,9 +71,12 @@ class PromotionRepository:
         store: Optional[str] = None,
         category: Optional[str] = None,
         created_at__gte: Optional[datetime] = None,
-        created_at__lte: Optional[datetime] = None
+        created_at__lte: Optional[datetime] = None,
+        exclude_source: Optional[str] = None,
+        search: Optional[str] = None,
+        order_by: str = "recent",
     ) -> List[PromotionModel]:
-        stmt = select(PromotionModel).order_by(desc(PromotionModel.created_at)).limit(limit).offset(offset)
+        stmt = select(PromotionModel)
         if status:
             stmt = stmt.where(PromotionModel.status == status)
         if store:
@@ -84,6 +87,19 @@ class PromotionRepository:
             stmt = stmt.where(PromotionModel.created_at >= created_at__gte)
         if created_at__lte:
             stmt = stmt.where(PromotionModel.created_at <= created_at__lte)
+        if exclude_source:
+            stmt = stmt.where(PromotionModel.source != exclude_source)
+        if search:
+            term = f"%{search.strip()}%"
+            stmt = stmt.where(PromotionModel.product_name.ilike(term), PromotionModel.product_name.is_not(None))
+        if order_by == "discount":
+            stmt = stmt.order_by(
+                PromotionModel.discount_percentage.desc().nulls_last(),
+                desc(PromotionModel.created_at),
+            )
+        else:
+            stmt = stmt.order_by(desc(PromotionModel.created_at))
+        stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -93,9 +109,10 @@ class PromotionRepository:
         store: Optional[str] = None,
         category: Optional[str] = None,
         created_at__gte: Optional[datetime] = None,
-        created_at__lte: Optional[datetime] = None
+        created_at__lte: Optional[datetime] = None,
+        exclude_source: Optional[str] = None,
+        search: Optional[str] = None,
     ) -> int:
-        from sqlalchemy import func
         stmt = select(func.count(PromotionModel.id))
         if status:
             stmt = stmt.where(PromotionModel.status == status)
@@ -107,8 +124,32 @@ class PromotionRepository:
             stmt = stmt.where(PromotionModel.created_at >= created_at__gte)
         if created_at__lte:
             stmt = stmt.where(PromotionModel.created_at <= created_at__lte)
+        if exclude_source:
+            stmt = stmt.where(PromotionModel.source != exclude_source)
+        if search:
+            term = f"%{search.strip()}%"
+            stmt = stmt.where(PromotionModel.product_name.ilike(term), PromotionModel.product_name.is_not(None))
         result = await self.session.execute(stmt)
         return result.scalar_one()
+
+    async def distinct_public_values(self, column, exclude_source: str = "painel") -> List[str]:
+        """Valores distintos (loja/categoria) para a navegação do site público."""
+        from sqlalchemy import distinct as _distinct
+        stmt = (
+            select(_distinct(column))
+            .where(column.is_not(None), PromotionModel.status == "published")
+        )
+        if exclude_source:
+            stmt = stmt.where(PromotionModel.source != exclude_source)
+        stmt = stmt.order_by(column)
+        result = await self.session.execute(stmt)
+        return [value for value in result.scalars().all() if value]
+
+    async def distinct_stores(self) -> List[str]:
+        return await self.distinct_public_values(PromotionModel.store)
+
+    async def distinct_categories(self) -> List[str]:
+        return await self.distinct_public_values(PromotionModel.category)
 
     async def update_status(
         self,

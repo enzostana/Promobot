@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 from uuid import uuid4
 
 import httpx
@@ -25,11 +25,13 @@ def _enlarge_thumbnail(url: str) -> str:
 
 class MercadoLivreFinder:
     """
-    Caçador de ofertas via API pública do Mercado Livre (/sites/MLB/search).
-    O Auth usa OAuth2 client_credentials (app de developers.mercadolivre.com.br).
-    Filtra itens com desconto real (original_price presente) e gera RawMessages.
-    O link (permalink) já resta no formato de produto; o AffiliateRegistry injeta
-    matt_tool na hora do parse, no pipeline normal.
+    Caçador de ofertas via API do Mercado Livre (/sites/MLB/search).
+    O endpoint de busca exige um access token com escopo de leitura obtido pelo
+    fluxo OAuth 'offline_access' (authorization_code -> refresh_token). O Client
+    ID/Secret sozinhos (client_credentials) NÃO autorizam /search (HTTP 403).
+
+    O refresh token é rotacionado a cada refresh; o finder chama o refresh_saver
+    para persistir o novo token (DB/settings), garantindo renovação contínua.
     """
 
     def __init__(
@@ -37,26 +39,31 @@ class MercadoLivreFinder:
         settings: Optional[Settings] = None,
         client: Optional[httpx.AsyncClient] = None,
         api_base: str = API_BASE,
+        refresh_saver: Optional[Callable[[str], object]] = None,
     ):
         self.settings = settings or Settings()
         self.client_id = self.settings.MEL_API_CLIENT_ID
         self.client_secret = self.settings.MEL_API_CLIENT_SECRET
+        self.refresh_token = self.settings.MEL_REFRESH_TOKEN
         self.api_base = api_base
         self._client = client
         self._owns_client = client is None
+        self._refresh_saver = refresh_saver
         self._formatter = PromotionFormatter()
-
-    label = "Mercado Livre"
 
     def enabled(self) -> bool:
         return bool(self.settings.MEL_FINDER_ENABLED)
+
+    @property
+    def label(self) -> str:
+        return "Mercado Livre"
 
     @property
     def interval_min(self) -> int:
         return max(1, int(self.settings.MEL_FINDER_INTERVAL_MIN or 30))
 
     def credentials_ok(self) -> bool:
-        return bool(self.client_id and self.client_secret)
+        return bool(self.client_id and self.client_secret and self.refresh_token)
 
     @property
     def keywords(self) -> List[str]:
@@ -66,15 +73,23 @@ class MercadoLivreFinder:
         resp = await client.post(
             f"{self.api_base}/oauth/token",
             data={
-                "grant_type": "client_credentials",
+                "grant_type": "refresh_token",
                 "client_id": self.client_id,
                 "client_secret": self.client_secret,
+                "refresh_token": self.refresh_token,
             },
         )
         if resp.status_code >= 400:
-            logger.warning(f"[FINDER-MEL] falha no token (http {resp.status_code}): {resp.text[:300]}")
+            logger.warning(f"[FINDER-MEL] falha no refresh do token (http {resp.status_code}): {resp.text[:300]}")
             resp.raise_for_status()
         data = resp.json()
+        new_refresh = data.get("refresh_token")
+        if new_refresh and new_refresh != self.refresh_token and self._refresh_saver:
+            try:
+                await self._refresh_saver(new_refresh)
+                self.refresh_token = new_refresh
+            except Exception as e:
+                logger.warning(f"[FINDER-MEL] falha ao persistir refresh token: {e}")
         return data["access_token"]
 
     @staticmethod

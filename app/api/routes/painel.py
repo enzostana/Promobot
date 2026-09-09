@@ -398,6 +398,11 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                         <p class="hint">Secret do app. Mascarado; vazio = manter atual.</p>
                     </div>
                     <div class="mb-4">
+                        <label>Refresh Token (OAuth offline_access)</label>
+                        <input type="text" id="mel_refresh_token" placeholder="••••" autocomplete="off">
+                        <p class="hint">Obtido em <b>mel/connect</b> ou configurando manualmente o fluxo de autorização. Mascarado; vazio = manter atual.</p>
+                    </div>
+                    <div class="mb-4">
                         <label>Keywords (vírgula)</label>
                         <input type="text" id="mel_finder_keywords" placeholder="fone bluetooth, smart tv…">
                     </div>
@@ -406,7 +411,7 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                         <div><label>Preço máx. (R$)</label><input type="text" id="mel_finder_max_price"></div>
                         <div><label>Intervalo (min)</label><input type="text" id="mel_finder_interval_min"></div>
                     </div>
-                    <button class="btn btn-primary" onclick="saveSection('caçador', ['mel_api_client_id','mel_api_client_secret','mel_finder_enabled','mel_finder_keywords','mel_finder_min_discount','mel_finder_max_price','mel_finder_interval_min'], 'msg-cacador-mel')">Salvar Caçador MEL</button>
+                    <button class="btn btn-primary" onclick="saveSection('caçador', ['mel_api_client_id','mel_api_client_secret','mel_refresh_token','mel_finder_enabled','mel_finder_keywords','mel_finder_min_discount','mel_finder_max_price','mel_finder_interval_min'], 'msg-cacador-mel')">Salvar Caçador MEL</button>
                     <div id="msg-cacador-mel" class="msg"></div>
                 </div>
             </div>
@@ -428,7 +433,7 @@ PAINEL_HTML = r'''<!DOCTYPE html>
     </div>
 
     <script>
-        const SECRET_KEYS = ["amazon_tag","mercadolivre_tag","shopee_tag","shopee_app_id","shopee_api_app_id","shopee_api_secret","mel_api_client_id","mel_api_client_secret"];
+        const SECRET_KEYS = ["amazon_tag","mercadolivre_tag","shopee_tag","shopee_app_id","shopee_api_app_id","shopee_api_secret","mel_api_client_id","mel_api_client_secret","mel_refresh_token"];
         function showMsg(id, ok, text) {
             const el = document.getElementById(id);
             el.className = "msg " + (ok ? "msg-ok" : "msg-err");

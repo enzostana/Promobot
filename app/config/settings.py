@@ -86,11 +86,18 @@ class Settings(BaseSettings):
     # Mercado Livre Finder (caçador via API pública + tag matt_tool)
     MEL_API_CLIENT_ID: Optional[str] = None
     MEL_API_CLIENT_SECRET: Optional[str] = None
+    MEL_REFRESH_TOKEN: Optional[str] = None
     MEL_FINDER_ENABLED: bool = False
     MEL_FINDER_KEYWORDS: str = "fone bluetooth,smart watch,smart tv,cafeteira,perfume masculino,tênis"
     MEL_FINDER_MIN_DISCOUNT: float = 20.0
     MEL_FINDER_MAX_PRICE: float = 500.0
     MEL_FINDER_INTERVAL_MIN: int = 30
+
+    # Site público (Rufino Promo)
+    SITE_TITLE: str = "Rufino Promo"
+    SITE_REFRESH_SECONDS: int = 20
+    MEDIA_CACHE_DIR: str = "/app/media_cache"
+    MEL_OAUTH_REDIRECT_URI: str = "https://promobot.enzostana.space/"
 
     # Dashboard Auth
     DASHBOARD_USERNAME: Optional[str] = None
@@ -132,6 +139,7 @@ class Settings(BaseSettings):
         self.SHOPEE_API_SECRET = self.SHOPEE_API_SECRET or _read_secret("shopee_api_secret")
         self.MEL_API_CLIENT_ID = self.MEL_API_CLIENT_ID or _read_secret("mel_api_client_id")
         self.MEL_API_CLIENT_SECRET = self.MEL_API_CLIENT_SECRET or _read_secret("mel_api_client_secret")
+        self.MEL_REFRESH_TOKEN = self.MEL_REFRESH_TOKEN or _read_secret("mel_refresh_token")
         # Postgres password can come from env or secret
         if not self.POSTGRES_PASSWORD:
             self.POSTGRES_PASSWORD = _read_secret("postgres_password")

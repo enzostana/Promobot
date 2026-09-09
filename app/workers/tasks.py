@@ -157,7 +157,10 @@ class Worker:
 
                 finders = [
                     ShopeeFinder(self.settings),
-                    MercadoLivreFinder(self.settings),
+                    MercadoLivreFinder(
+                        self.settings,
+                        refresh_saver=self._save_mel_refresh_token,
+                    ),
                 ]
                 intervals = []
                 for finder in finders:
@@ -181,6 +184,21 @@ class Worker:
                 logger.warning(f"[FINDER] Erro na varredura: {e}")
                 interval_min = 30
             await asyncio.sleep(interval_min * 60)
+
+    async def _save_mel_refresh_token(self, token: str) -> None:
+        from app.database.repositories.setting_repo import SettingRepository
+
+        try:
+            async with async_session_maker() as settings_session:
+                repo = SettingRepository(settings_session)
+                await repo.upsert("mel_refresh_token", token)
+                await settings_session.commit()
+                settings = self.settings
+                if settings is not None:
+                    setattr(settings, "MEL_REFRESH_TOKEN", token)
+                logger.info("[FINDER] Refresh token MEL rotacionado e persistido.")
+        except Exception as e:
+            logger.warning(f"[FINDER] Erro ao persistir refresh token MEL: {e}")
 
     def stop(self) -> None:
         logger.info("[WORKER] Sinal de encerramento recebido...")

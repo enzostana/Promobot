@@ -3,6 +3,7 @@ import logging
 import uuid
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config.settings import get_settings
 from app.database.session import init_db
@@ -14,6 +15,7 @@ from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.dashboard_filters import router as dashboard_filters_router
 from app.api.routes.painel import router as painel_router
 from app.api.routes.hub import router as hub_router
+from app.api.routes.site import router as site_router
 from app.logging_config import setup_logging, get_logger, set_correlation_id, correlation_id_var
 
 logger = get_logger("promobot")
@@ -80,6 +82,12 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_filters_router)
     app.include_router(painel_router)
     app.include_router(hub_router)
+    app.include_router(site_router)
+    app.mount(
+        "/media",
+        StaticFiles(directory=get_settings().MEDIA_CACHE_DIR, check_dir=False),
+        name="media",
+    )
 
     return app
 

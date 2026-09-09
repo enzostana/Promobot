@@ -47,6 +47,7 @@ EDITABLE_KEYS: Dict[str, Tuple[str, str, bool, str]] = {
     # Caçador de ofertas (Mercado Livre)
     "mel_api_client_id": ("MEL_API_CLIENT_ID", "str", True, "Client ID do app Mercado Livre (developers.mercadolivre.com.br)"),
     "mel_api_client_secret": ("MEL_API_CLIENT_SECRET", "str", True, "Client Secret do app Mercado Livre"),
+    "mel_refresh_token": ("MEL_REFRESH_TOKEN", "str", True, "Refresh Token (OAuth offline_access) para o /sites/MLB/search"),
     "mel_finder_enabled": ("MEL_FINDER_ENABLED", "bool", False, "Caçador Mercado Livre ligado ('1' sim, '0' não)"),
     "mel_finder_keywords": ("MEL_FINDER_KEYWORDS", "str", False, "Keywords do caçador MEL (separadas por vírgula)"),
     "mel_finder_min_discount": ("MEL_FINDER_MIN_DISCOUNT", "float", False, "Desconto mínimo p/ publicar (%)"),
@@ -68,7 +69,7 @@ SECTIONS: Dict[str, List[str]] = {
         "shopee_finder_min_rating", "shopee_finder_max_price", "shopee_finder_interval_min",
         "mel_api_client_id", "mel_api_client_secret", "mel_finder_enabled",
         "mel_finder_keywords", "mel_finder_min_discount", "mel_finder_max_price",
-        "mel_finder_interval_min",
+        "mel_finder_interval_min", "mel_refresh_token",
     ],
 }
 
@@ -84,6 +85,7 @@ SECRET_FILES: Dict[str, str] = {
     "shopee_api_secret": "shopee_api_secret.txt",
     "mel_api_client_id": "mel_api_client_id.txt",
     "mel_api_client_secret": "mel_api_client_secret.txt",
+    "mel_refresh_token": "mel_refresh_token.txt",
 }
 
 # Directory where panel writes tag files so future container recreates pick them up.

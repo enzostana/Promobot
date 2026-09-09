@@ -8,7 +8,7 @@ router = APIRouter(tags=["Hub"])
 AUTH = [Depends(verify_dashboard_credentials)]
 
 
-@router.get("/", response_class=HTMLResponse, dependencies=AUTH)
+@router.get("/hub", response_class=HTMLResponse, dependencies=AUTH)
 async def hub_page():
     return HUB_HTML
 
@@ -60,6 +60,10 @@ HUB_HTML = r'''<!DOCTYPE html>
             <a href="/painel" class="card p-6 block">
                 <h2 class="text-lg font-bold mb-1" style="color:var(--text-primary);">Painel</h2>
                 <p class="text-sm" style="color:var(--text-muted);">Controle do bot: tags, filtros, destino e ações.</p>
+            </a>
+            <a href="/" class="card p-6 block">
+                <h2 class="text-lg font-bold mb-1" style="color:var(--text-primary);">Ver site</h2>
+                <p class="text-sm" style="color:var(--text-muted);">Página pública de ofertas — Rufino Promo.</p>
             </a>
         </div>
 
