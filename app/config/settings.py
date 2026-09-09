@@ -72,6 +72,17 @@ class Settings(BaseSettings):
     SHOPEE_APP_ID: Optional[str] = None
     SHOPEE_TAG: Optional[str] = None
 
+    # Shopee Finder (caçador de ofertas via Open API de Afiliados)
+    SHOPEE_API_APP_ID: Optional[str] = None
+    SHOPEE_API_SECRET: Optional[str] = None
+    SHOPEE_FINDER_ENABLED: bool = False
+    SHOPEE_FINDER_KEYWORDS: str = "fone bluetooth,smart watch,smart tv,cafeteira,perfume masculino,tênis"
+    SHOPEE_FINDER_MIN_DISCOUNT: float = 20.0
+    SHOPEE_FINDER_MIN_SALES: int = 50
+    SHOPEE_FINDER_MIN_RATING: float = 4.0
+    SHOPEE_FINDER_MAX_PRICE: float = 500.0
+    SHOPEE_FINDER_INTERVAL_MIN: int = 30
+
     # Dashboard Auth
     DASHBOARD_USERNAME: Optional[str] = None
     DASHBOARD_PASSWORD: Optional[str] = None
@@ -108,6 +119,8 @@ class Settings(BaseSettings):
         self.MERCADOLIVRE_TAG = self.MERCADOLIVRE_TAG or _read_secret("mercadolivre_tag")
         self.SHOPEE_APP_ID = self.SHOPEE_APP_ID or _read_secret("shopee_app_id")
         self.SHOPEE_TAG = self.SHOPEE_TAG or _read_secret("shopee_tag")
+        self.SHOPEE_API_APP_ID = self.SHOPEE_API_APP_ID or _read_secret("shopee_api_app_id")
+        self.SHOPEE_API_SECRET = self.SHOPEE_API_SECRET or _read_secret("shopee_api_secret")
         # Postgres password can come from env or secret
         if not self.POSTGRES_PASSWORD:
             self.POSTGRES_PASSWORD = _read_secret("postgres_password")
@@ -116,6 +129,11 @@ class Settings(BaseSettings):
         if not self.TELEGRAM_SOURCE_CHATS:
             return []
         return [c.strip() for c in self.TELEGRAM_SOURCE_CHATS.split(",") if c.strip()]
+
+    def get_shopee_finder_keywords(self) -> List[str]:
+        if not self.SHOPEE_FINDER_KEYWORDS:
+            return []
+        return [k.strip() for k in self.SHOPEE_FINDER_KEYWORDS.split(",") if k.strip()]
 
     def get_blocked_keywords(self) -> List[str]:
         if not self.BLOCKED_KEYWORDS:

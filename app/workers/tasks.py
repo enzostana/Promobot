@@ -38,6 +38,7 @@ class Worker:
             logger.info("[WORKER] WhatsAppPublisher registrado (publicação via Evolution API).")
         self.processor = processor or PromotionProcessor(publishers=publishers, settings=self.settings)
         self._running = False
+        self._finder_task = None
 
     async def start(self) -> None:
         self._running = True
@@ -63,6 +64,9 @@ class Worker:
 
         # Clean up old media files on startup
         await self._cleanup_media_cache()
+
+        # Periodic deal-finder (Shopee Open API)
+        self._finder_task = asyncio.create_task(self._finder_loop())
 
         while self._running:
             try:
@@ -132,8 +136,40 @@ class Worker:
                 await asyncio.sleep(1)
 
         logger.info("[WORKER] Worker finalizado com sucesso.")
+        try:
+            self._finder_task.cancel()
+        except Exception:
+            pass
         await health_runner.cleanup()
         await redis_client.aclose()
+
+    async def _finder_loop(self) -> None:
+        """Periódico: consulta a Open API Shopee e enfileira ofertas novas."""
+        from app.finder.shopee import ShopeeFinder
+
+        logger.info("[FINDER] Ciclo do caçador de ofertas iniciado.")
+        while self._running:
+            try:
+                # Refresh runtime config (DB overrides) before each cycle
+                async with async_session_maker() as settings_session:
+                    await self.runtime_overrides.apply(settings_session, self.settings, force=True)
+                interval_min = max(1, int(self.settings.SHOPEE_FINDER_INTERVAL_MIN or 30))
+                finder = ShopeeFinder(self.settings)
+                if not finder.enabled():
+                    logger.info(f"[FINDER] Caçador desabilitado; próxima checagem em {interval_min} min.")
+                elif not finder.credentials_ok():
+                    logger.warning(
+                        "[FINDER] Credenciais da Open API Shopee ausentes (configure 'Caçador' no painel). "
+                        f"Próxima checagem em {interval_min} min."
+                    )
+                else:
+                    found = await finder.scan(self.queue)
+                    logger.info(f"[FINDER] Varredura Shopee concluída: {found} ofertas enfileiradas.")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.warning(f"[FINDER] Erro na varredura: {e}")
+            await asyncio.sleep(interval_min * 60)
 
     def stop(self) -> None:
         logger.info("[WORKER] Sinal de encerramento recebido...")

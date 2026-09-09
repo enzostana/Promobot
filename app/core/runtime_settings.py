@@ -34,6 +34,16 @@ EDITABLE_KEYS: Dict[str, Tuple[str, str, bool, str]] = {
     "whatsapp_enabled": ("WHATSAPP_ENABLED", "bool", False, "Publicar também no WhatsApp ('1' ligado, '0' desligado)"),
     "whatsapp_with_image": ("WHATSAPP_WITH_IMAGE", "bool", False, "Enviar imagem da oferta no WhatsApp ('1' sim, '0' só texto)"),
     "bot_paused": ("BOT_PAUSED", "bool", False, "Pausar o bot ('1' pausado, '0' ativo)"),
+    # Caçador de ofertas (Shopee Finder)
+    "shopee_api_app_id": ("SHOPEE_API_APP_ID", "str", True, "App ID da Open API Shopee (Abrir API)"),
+    "shopee_api_secret": ("SHOPEE_API_SECRET", "str", True, "Secret da Open API Shopee (Abrir API)"),
+    "shopee_finder_enabled": ("SHOPEE_FINDER_ENABLED", "bool", False, "Caçador Shopee ligado ('1' sim, '0' não)"),
+    "shopee_finder_keywords": ("SHOPEE_FINDER_KEYWORDS", "str", False, "Keywords do caçador (separadas por vírgula)"),
+    "shopee_finder_min_discount": ("SHOPEE_FINDER_MIN_DISCOUNT", "float", False, "Desconto mínimo p/ publicar (%)"),
+    "shopee_finder_min_sales": ("SHOPEE_FINDER_MIN_SALES", "int", False, "Vendas mínimas do produto"),
+    "shopee_finder_min_rating": ("SHOPEE_FINDER_MIN_RATING", "float", False, "Avaliação mínima (0 a 5)"),
+    "shopee_finder_max_price": ("SHOPEE_FINDER_MAX_PRICE", "float", False, "Preço máximo (R$)"),
+    "shopee_finder_interval_min": ("SHOPEE_FINDER_INTERVAL_MIN", "int", False, "Intervalo entre varreduras (min)"),
 }
 
 SECTIONS: Dict[str, List[str]] = {
@@ -44,6 +54,11 @@ SECTIONS: Dict[str, List[str]] = {
         "min_price", "max_price",
     ],
     "destinos": ["telegram_target_chat", "whatsapp_target_chat", "whatsapp_enabled", "whatsapp_with_image", "bot_paused"],
+    "caçador": [
+        "shopee_api_app_id", "shopee_api_secret", "shopee_finder_enabled",
+        "shopee_finder_keywords", "shopee_finder_min_discount", "shopee_finder_min_sales",
+        "shopee_finder_min_rating", "shopee_finder_max_price", "shopee_finder_interval_min",
+    ],
 }
 
 SECRET_KEYS: set = {k for k, (_, _, secret, _) in EDITABLE_KEYS.items() if secret}
@@ -54,6 +69,8 @@ SECRET_FILES: Dict[str, str] = {
     "mercadolivre_tag": "mercadolivre_tag.txt",
     "shopee_tag": "shopee_tag.txt",
     "shopee_app_id": "shopee_app_id.txt",
+    "shopee_api_app_id": "shopee_api_app_id.txt",
+    "shopee_api_secret": "shopee_api_secret.txt",
 }
 
 # Directory where panel writes tag files so future container recreates pick them up.
@@ -64,6 +81,11 @@ def _coerce(kind: str, value: str) -> Any:
     if kind == "float":
         try:
             return float(value)
+        except (TypeError, ValueError):
+            return value
+    if kind == "int":
+        try:
+            return int(float(value))
         except (TypeError, ValueError):
             return value
     if kind == "bool":
@@ -103,8 +125,24 @@ def validate_section(section: str, payload: Dict[str, str]) -> List[str]:
             if key == "min_discount_percent" and not (0 <= number <= 100):
                 errors.append("'min_discount_percent' deve estar entre 0 e 100")
                 continue
+            if key == "shopee_finder_min_discount" and not (0 <= number <= 100):
+                errors.append("'shopee_finder_min_discount' deve estar entre 0 e 100")
+                continue
+            if key == "shopee_finder_min_rating" and not (0 <= number <= 5):
+                errors.append("'shopee_finder_min_rating' deve estar entre 0 e 5")
+                continue
             if number < 0:
                 errors.append(f"'{key}' deve ser maior ou igual a 0")
+        if kind == "int":
+            try:
+                number = int(float(value.replace(",", ".")))
+            except ValueError:
+                errors.append(f"'{key}' deve ser um número inteiro")
+                continue
+            if number < 0:
+                errors.append(f"'{key}' deve ser maior ou igual a 0")
+            if key == "shopee_finder_interval_min" and number < 1:
+                errors.append("'shopee_finder_interval_min' deve ser maior ou igual a 1")
         if kind == "bool" and value not in ("0", "1"):
             errors.append(f"'{key}' deve ser '0' ou '1'")
     return errors

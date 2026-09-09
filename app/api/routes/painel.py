@@ -337,6 +337,44 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                 </div>
             </div>
 
+            <!-- Caçador de ofertas -->
+            <div class="card">
+                <div class="card-header"><h2 class="font-bold" style="color:var(--text-primary);">Caçador de ofertas</h2></div>
+                <div class="card-body">
+                    <p class="text-sm mb-4" style="color:var(--text-muted);">Busca automática na Open API de Afiliados Shopee por keyword e enfileira as ofertas que passam nas regras abaixo.</p>
+                    <div class="mb-4">
+                        <label>Ligado</label>
+                        <select id="shopee_finder_enabled">
+                            <option value="1">Ligado</option>
+                            <option value="0">Desligado</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label>Credenciais — App ID (Open API)</label>
+                        <input type="text" id="shopee_api_app_id" placeholder="••••" autocomplete="off">
+                        <p class="hint">App ID da aba "Abrir API" em <b>affiliate.shopee.com.br</b>.</p>
+                    </div>
+                    <div class="mb-4">
+                        <label>Credenciais — Secret (Open API)</label>
+                        <input type="text" id="shopee_api_secret" placeholder="••••" autocomplete="off">
+                        <p class="hint">Secret da aba "Abrir API". Mostrado mascarado; vazio = manter atual.</p>
+                    </div>
+                    <div class="mb-4">
+                        <label>Keywords (vírgula)</label>
+                        <input type="text" id="shopee_finder_keywords" placeholder="fone bluetooth, smart tv…">
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div><label>Desc. mín. (%)</label><input type="text" id="shopee_finder_min_discount"></div>
+                        <div><label>Vendas mín.</label><input type="text" id="shopee_finder_min_sales"></div>
+                        <div><label>Rating mín.</label><input type="text" id="shopee_finder_min_rating"></div>
+                        <div><label>Preço máx. (R$)</label><input type="text" id="shopee_finder_max_price"></div>
+                        <div><label>Intervalo (min)</label><input type="text" id="shopee_finder_interval_min"></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSection('caçador', ['shopee_api_app_id','shopee_api_secret','shopee_finder_enabled','shopee_finder_keywords','shopee_finder_min_discount','shopee_finder_min_sales','shopee_finder_min_rating','shopee_finder_max_price','shopee_finder_interval_min'], 'msg-cacador')">Salvar Caçador</button>
+                    <div id="msg-cacador" class="msg"></div>
+                </div>
+            </div>
+
             <!-- Ações -->
             <div class="card">
                 <div class="card-header"><h2 class="font-bold" style="color:var(--text-primary);">Ações</h2></div>
@@ -354,7 +392,7 @@ PAINEL_HTML = r'''<!DOCTYPE html>
     </div>
 
     <script>
-        const SECRET_KEYS = ["amazon_tag","mercadolivre_tag","shopee_tag","shopee_app_id"];
+        const SECRET_KEYS = ["amazon_tag","mercadolivre_tag","shopee_tag","shopee_app_id","shopee_api_app_id","shopee_api_secret"];
         function showMsg(id, ok, text) {
             const el = document.getElementById(id);
             el.className = "msg " + (ok ? "msg-ok" : "msg-err");
