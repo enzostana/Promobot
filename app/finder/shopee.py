@@ -48,8 +48,14 @@ class ShopeeFinder:
         self._owns_client = client is None
         self._formatter = PromotionFormatter()
 
+    label = "Shopee"
+
     def enabled(self) -> bool:
         return bool(self.settings.SHOPEE_FINDER_ENABLED)
+
+    @property
+    def interval_min(self) -> int:
+        return max(1, int(self.settings.SHOPEE_FINDER_INTERVAL_MIN or 30))
 
     def credentials_ok(self) -> bool:
         return bool(self.app_id and self.secret)

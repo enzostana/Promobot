@@ -44,6 +44,14 @@ EDITABLE_KEYS: Dict[str, Tuple[str, str, bool, str]] = {
     "shopee_finder_min_rating": ("SHOPEE_FINDER_MIN_RATING", "float", False, "Avaliação mínima (0 a 5)"),
     "shopee_finder_max_price": ("SHOPEE_FINDER_MAX_PRICE", "float", False, "Preço máximo (R$)"),
     "shopee_finder_interval_min": ("SHOPEE_FINDER_INTERVAL_MIN", "int", False, "Intervalo entre varreduras (min)"),
+    # Caçador de ofertas (Mercado Livre)
+    "mel_api_client_id": ("MEL_API_CLIENT_ID", "str", True, "Client ID do app Mercado Livre (developers.mercadolivre.com.br)"),
+    "mel_api_client_secret": ("MEL_API_CLIENT_SECRET", "str", True, "Client Secret do app Mercado Livre"),
+    "mel_finder_enabled": ("MEL_FINDER_ENABLED", "bool", False, "Caçador Mercado Livre ligado ('1' sim, '0' não)"),
+    "mel_finder_keywords": ("MEL_FINDER_KEYWORDS", "str", False, "Keywords do caçador MEL (separadas por vírgula)"),
+    "mel_finder_min_discount": ("MEL_FINDER_MIN_DISCOUNT", "float", False, "Desconto mínimo p/ publicar (%)"),
+    "mel_finder_max_price": ("MEL_FINDER_MAX_PRICE", "float", False, "Preço máximo (R$)"),
+    "mel_finder_interval_min": ("MEL_FINDER_INTERVAL_MIN", "int", False, "Intervalo entre varreduras (min)"),
 }
 
 SECTIONS: Dict[str, List[str]] = {
@@ -58,6 +66,9 @@ SECTIONS: Dict[str, List[str]] = {
         "shopee_api_app_id", "shopee_api_secret", "shopee_finder_enabled",
         "shopee_finder_keywords", "shopee_finder_min_discount", "shopee_finder_min_sales",
         "shopee_finder_min_rating", "shopee_finder_max_price", "shopee_finder_interval_min",
+        "mel_api_client_id", "mel_api_client_secret", "mel_finder_enabled",
+        "mel_finder_keywords", "mel_finder_min_discount", "mel_finder_max_price",
+        "mel_finder_interval_min",
     ],
 }
 
@@ -71,6 +82,8 @@ SECRET_FILES: Dict[str, str] = {
     "shopee_app_id": "shopee_app_id.txt",
     "shopee_api_app_id": "shopee_api_app_id.txt",
     "shopee_api_secret": "shopee_api_secret.txt",
+    "mel_api_client_id": "mel_api_client_id.txt",
+    "mel_api_client_secret": "mel_api_client_secret.txt",
 }
 
 # Directory where panel writes tag files so future container recreates pick them up.
@@ -127,6 +140,9 @@ def validate_section(section: str, payload: Dict[str, str]) -> List[str]:
                 continue
             if key == "shopee_finder_min_discount" and not (0 <= number <= 100):
                 errors.append("'shopee_finder_min_discount' deve estar entre 0 e 100")
+                continue
+            if key == "mel_finder_min_discount" and not (0 <= number <= 100):
+                errors.append("'mel_finder_min_discount' deve estar entre 0 e 100")
                 continue
             if key == "shopee_finder_min_rating" and not (0 <= number <= 5):
                 errors.append("'shopee_finder_min_rating' deve estar entre 0 e 5")

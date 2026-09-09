@@ -370,8 +370,44 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                         <div><label>Preço máx. (R$)</label><input type="text" id="shopee_finder_max_price"></div>
                         <div><label>Intervalo (min)</label><input type="text" id="shopee_finder_interval_min"></div>
                     </div>
-                    <button class="btn btn-primary" onclick="saveSection('caçador', ['shopee_api_app_id','shopee_api_secret','shopee_finder_enabled','shopee_finder_keywords','shopee_finder_min_discount','shopee_finder_min_sales','shopee_finder_min_rating','shopee_finder_max_price','shopee_finder_interval_min'], 'msg-cacador')">Salvar Caçador</button>
+                    <button class="btn btn-primary" onclick="saveSection('caçador', ['shopee_api_app_id','shopee_api_secret','shopee_finder_enabled','shopee_finder_keywords','shopee_finder_min_discount','shopee_finder_min_sales','shopee_finder_min_rating','shopee_finder_max_price','shopee_finder_interval_min'], 'msg-cacador')">Salvar Caçador Shopee</button>
                     <div id="msg-cacador" class="msg"></div>
+                </div>
+            </div>
+
+            <!-- Caçador Mercado Livre -->
+            <div class="card">
+                <div class="card-header"><h2 class="font-bold" style="color:var(--text-primary);">Caçador Mercado Livre</h2></div>
+                <div class="card-body">
+                    <p class="text-sm mb-4" style="color:var(--text-muted);">Busca automática na API pública do Mercado Livre por keyword e enfileira itens com desconto real (mín. configurado). O link já sai com a sua tag <code>matt_tool</code>.</p>
+                    <div class="mb-4">
+                        <label>Ligado</label>
+                        <select id="mel_finder_enabled">
+                            <option value="1">Ligado</option>
+                            <option value="0">Desligado</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label>Credenciais — Client ID</label>
+                        <input type="text" id="mel_api_client_id" placeholder="••••" autocomplete="off">
+                        <p class="hint">App criado em <b>developers.mercadolivre.com.br</b>.</p>
+                    </div>
+                    <div class="mb-4">
+                        <label>Credenciais — Client Secret</label>
+                        <input type="text" id="mel_api_client_secret" placeholder="••••" autocomplete="off">
+                        <p class="hint">Secret do app. Mascarado; vazio = manter atual.</p>
+                    </div>
+                    <div class="mb-4">
+                        <label>Keywords (vírgula)</label>
+                        <input type="text" id="mel_finder_keywords" placeholder="fone bluetooth, smart tv…">
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div><label>Desc. mín. (%)</label><input type="text" id="mel_finder_min_discount"></div>
+                        <div><label>Preço máx. (R$)</label><input type="text" id="mel_finder_max_price"></div>
+                        <div><label>Intervalo (min)</label><input type="text" id="mel_finder_interval_min"></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSection('caçador', ['mel_api_client_id','mel_api_client_secret','mel_finder_enabled','mel_finder_keywords','mel_finder_min_discount','mel_finder_max_price','mel_finder_interval_min'], 'msg-cacador-mel')">Salvar Caçador MEL</button>
+                    <div id="msg-cacador-mel" class="msg"></div>
                 </div>
             </div>
 
@@ -392,7 +428,7 @@ PAINEL_HTML = r'''<!DOCTYPE html>
     </div>
 
     <script>
-        const SECRET_KEYS = ["amazon_tag","mercadolivre_tag","shopee_tag","shopee_app_id","shopee_api_app_id","shopee_api_secret"];
+        const SECRET_KEYS = ["amazon_tag","mercadolivre_tag","shopee_tag","shopee_app_id","shopee_api_app_id","shopee_api_secret","mel_api_client_id","mel_api_client_secret"];
         function showMsg(id, ok, text) {
             const el = document.getElementById(id);
             el.className = "msg " + (ok ? "msg-ok" : "msg-err");

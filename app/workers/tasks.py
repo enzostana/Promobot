@@ -144,7 +144,8 @@ class Worker:
         await redis_client.aclose()
 
     async def _finder_loop(self) -> None:
-        """Periódico: consulta a Open API Shopee e enfileira ofertas novas."""
+        """Periódico: consulta as APIs de afiliados (Shopee, Mercado Livre) e enfileira ofertas."""
+        from app.finder.mercadolivre import MercadoLivreFinder
         from app.finder.shopee import ShopeeFinder
 
         logger.info("[FINDER] Ciclo do caçador de ofertas iniciado.")
@@ -153,22 +154,32 @@ class Worker:
                 # Refresh runtime config (DB overrides) before each cycle
                 async with async_session_maker() as settings_session:
                     await self.runtime_overrides.apply(settings_session, self.settings, force=True)
-                interval_min = max(1, int(self.settings.SHOPEE_FINDER_INTERVAL_MIN or 30))
-                finder = ShopeeFinder(self.settings)
-                if not finder.enabled():
-                    logger.info(f"[FINDER] Caçador desabilitado; próxima checagem em {interval_min} min.")
-                elif not finder.credentials_ok():
-                    logger.warning(
-                        "[FINDER] Credenciais da Open API Shopee ausentes (configure 'Caçador' no painel). "
-                        f"Próxima checagem em {interval_min} min."
-                    )
-                else:
+
+                finders = [
+                    ShopeeFinder(self.settings),
+                    MercadoLivreFinder(self.settings),
+                ]
+                intervals = []
+                for finder in finders:
+                    label = finder.label
+                    if not finder.enabled():
+                        logger.info(f"[FINDER] Caçador {label} desabilitado.")
+                        continue
+                    intervals.append(finder.interval_min)
+                    if not finder.credentials_ok():
+                        logger.warning(
+                            f"[FINDER] Caçador {label}: credenciais ausentes (configure 'Caçador' no painel)."
+                        )
+                        continue
                     found = await finder.scan(self.queue)
-                    logger.info(f"[FINDER] Varredura Shopee concluída: {found} ofertas enfileiradas.")
+                    logger.info(f"[FINDER] Varredura {label} concluída: {found} ofertas enfileiradas.")
+
+                interval_min = max(1, min(intervals)) if intervals else 30
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.warning(f"[FINDER] Erro na varredura: {e}")
+                interval_min = 30
             await asyncio.sleep(interval_min * 60)
 
     def stop(self) -> None:

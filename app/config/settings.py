@@ -83,6 +83,15 @@ class Settings(BaseSettings):
     SHOPEE_FINDER_MAX_PRICE: float = 500.0
     SHOPEE_FINDER_INTERVAL_MIN: int = 30
 
+    # Mercado Livre Finder (caçador via API pública + tag matt_tool)
+    MEL_API_CLIENT_ID: Optional[str] = None
+    MEL_API_CLIENT_SECRET: Optional[str] = None
+    MEL_FINDER_ENABLED: bool = False
+    MEL_FINDER_KEYWORDS: str = "fone bluetooth,smart watch,smart tv,cafeteira,perfume masculino,tênis"
+    MEL_FINDER_MIN_DISCOUNT: float = 20.0
+    MEL_FINDER_MAX_PRICE: float = 500.0
+    MEL_FINDER_INTERVAL_MIN: int = 30
+
     # Dashboard Auth
     DASHBOARD_USERNAME: Optional[str] = None
     DASHBOARD_PASSWORD: Optional[str] = None
@@ -121,6 +130,8 @@ class Settings(BaseSettings):
         self.SHOPEE_TAG = self.SHOPEE_TAG or _read_secret("shopee_tag")
         self.SHOPEE_API_APP_ID = self.SHOPEE_API_APP_ID or _read_secret("shopee_api_app_id")
         self.SHOPEE_API_SECRET = self.SHOPEE_API_SECRET or _read_secret("shopee_api_secret")
+        self.MEL_API_CLIENT_ID = self.MEL_API_CLIENT_ID or _read_secret("mel_api_client_id")
+        self.MEL_API_CLIENT_SECRET = self.MEL_API_CLIENT_SECRET or _read_secret("mel_api_client_secret")
         # Postgres password can come from env or secret
         if not self.POSTGRES_PASSWORD:
             self.POSTGRES_PASSWORD = _read_secret("postgres_password")
@@ -134,6 +145,11 @@ class Settings(BaseSettings):
         if not self.SHOPEE_FINDER_KEYWORDS:
             return []
         return [k.strip() for k in self.SHOPEE_FINDER_KEYWORDS.split(",") if k.strip()]
+
+    def get_mel_finder_keywords(self) -> List[str]:
+        if not self.MEL_FINDER_KEYWORDS:
+            return []
+        return [k.strip() for k in self.MEL_FINDER_KEYWORDS.split(",") if k.strip()]
 
     def get_blocked_keywords(self) -> List[str]:
         if not self.BLOCKED_KEYWORDS:
