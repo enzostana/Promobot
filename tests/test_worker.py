@@ -207,3 +207,84 @@ async def test_worker_loop_sends_to_dead_letter_after_max_attempts():
     assert queue.enqueued[0].attempts == 1
     assert len(queue.dead) == 1
     assert queue.dead[0].attempts == 2
+
+
+from datetime import datetime, timedelta, timezone
+
+
+def _stale_msg(received_at, id="old"):
+    return RawMessage(
+        id=id,
+        source="telegram",
+        source_message_id="100",
+        source_chat_id="@promo_deals",
+        text="🔥 TV 50 4K\nhttps://www.amazon.com.br/dp/B08N5WRWNW",
+        received_at=received_at,
+    )
+
+
+def test_worker_discards_stale_message():
+    worker = Worker()
+    old = _stale_msg(datetime.now(timezone.utc) - timedelta(minutes=30))
+    fresh = _stale_msg(datetime.now(timezone.utc) - timedelta(minutes=1), id="fresh")
+
+    assert worker._is_stale(old) is True
+    assert worker._is_stale(fresh) is False
+
+
+def test_worker_stale_ignores_painel_tests():
+    worker = Worker()
+    old = raw_msg = RawMessage(
+        id="painel-test-abc",
+        source="painel",
+        source_message_id="t1",
+        source_chat_id="@painel",
+        text="teste",
+        received_at=datetime.now(timezone.utc) - timedelta(hours=2),
+    )
+    assert worker._is_stale(old) is False
+
+
+@pytest.mark.asyncio
+async def test_worker_does_not_reenqueue_stale_on_failure():
+    worker = Worker()
+    queue = RecordingQueue(max_attempts=3)
+    worker.queue = queue
+    msg = _stale_msg(datetime.now(timezone.utc) - timedelta(minutes=30))
+
+    await worker._handle_failure(msg)
+
+    assert queue.enqueued == []
+    assert queue.dead == []
+
+
+@pytest.mark.asyncio
+async def test_worker_loop_skips_stale_message_without_publishing():
+    """Stale queued messages must be dropped, never processed/published."""
+    processed = []
+    stale = _stale_msg(datetime.now(timezone.utc) - timedelta(minutes=40))
+    queue = RecordingQueue(dequeue_sequence=[stale, None])
+
+    class RecordingProcessor:
+        async def process(self, raw_msg, db_session=None):
+            processed.append(raw_msg.id)
+
+    worker = Worker()
+    worker.queue = queue
+    worker.processor = RecordingProcessor()
+
+    async def bounded_start():
+        while True:
+            raw_msg = await worker.queue.dequeue(timeout=0)
+            if not raw_msg:
+                break
+            if worker._is_stale(raw_msg):
+                continue
+            await worker.processor.process(raw_msg, db_session=None)
+
+    with patch("app.workers.tasks.init_db", new=AsyncMock()):
+        await bounded_start()
+
+    assert processed == []
+    assert queue.enqueued == []
+    assert queue.dead == []

@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     REDIS_DEDUP_PREFIX: str = "promobot:dedup:"
     DEDUP_WINDOW_HOURS: int = 24
     WORKER_MAX_ATTEMPTS: int = 3
+    # Messages older than this (minutes) are discarded to avoid retroactive
+    # posting (e.g. queue backlog accumulated while the bot was paused or
+    # Telegram reconnect letting through old channel posts). 0 = disabled.
+    STALE_AFTER_MINUTES: int = 15
 
     # Database Connection Pool
     DB_POOL_SIZE: int = 5

@@ -73,6 +73,12 @@ class Worker:
 
                 logger.info(f"[WORKER] Nova mensagem recebida da fila: id={raw_msg.id} (origem: {raw_msg.source_chat_id}, tentativa {raw_msg.attempts + 1})")
 
+                # Drop stale messages so queue backlog/reconnect never causes
+                # retroactive posting. Painel tests always process immediately.
+                if self._is_stale(raw_msg):
+                    logger.info(f"[WORKER] Mensagem descartada (antiga demais; {self.settings.STALE_AFTER_MINUTES}min): id={raw_msg.id} recebida_em={raw_msg.received_at}")
+                    continue
+
                 # Apply runtime settings edited in the control panel (DB overrides)
                 try:
                     async with async_session_maker() as settings_session:
@@ -84,6 +90,10 @@ class Worker:
                 self.processor.refresh_runtime(self.settings)
 
                 if self.runtime_overrides.is_paused():
+                    # Do not keep cycling stale messages while paused.
+                    if self._is_stale(raw_msg):
+                        logger.info(f"[WORKER] Mensagem descartada (pausa + antiga demais): id={raw_msg.id}")
+                        continue
                     logger.info("[WORKER] Bot pausado pelo painel; mensagem re-enfileirada, aguardando retomar.")
                     await self.queue.enqueue(raw_msg)
                     await asyncio.sleep(5)
@@ -129,6 +139,18 @@ class Worker:
         logger.info("[WORKER] Sinal de encerramento recebido...")
         self._running = False
 
+    def _is_stale(self, raw_msg: RawMessage) -> bool:
+        """True when a captured message is older than STALE_AFTER_MINUTES."""
+        from datetime import datetime, timezone
+        max_age = getattr(self.settings, "STALE_AFTER_MINUTES", 15)
+        if max_age <= 0 or raw_msg.source == "painel":
+            return False
+        received = raw_msg.received_at
+        if received is None:
+            return False
+        age_minutes = (datetime.now(timezone.utc) - received).total_seconds() / 60.0
+        return age_minutes > max_age
+
     async def _handle_failure(self, raw_msg: RawMessage) -> None:
         """
         Handles a transient failure: re-enqueues the message (incrementing the
@@ -136,6 +158,9 @@ class Worker:
         Uses exponential backoff before re-enqueueing.
         """
         raw_msg.attempts += 1
+        if self._is_stale(raw_msg):
+            logger.info(f"[WORKER] Retry abortado, mensagem antiga demais; descartada: {raw_msg.id}")
+            return
         if raw_msg.attempts < self.queue.max_attempts:
             # Exponential backoff: 2^attempt seconds, max 60s
             delay = min(2 ** raw_msg.attempts, 60)

@@ -15,12 +15,13 @@ class FakeChat:
 
 
 class FakeMessage:
-    def __init__(self, id=1, text="", entities=None, photo=None, message=None):
+    def __init__(self, id=1, text="", entities=None, photo=None, message=None, date=None):
         self.id = id
         self.text = text
         self.message = message
         self.entities = entities or []
         self.photo = photo
+        self.date = date
 
 
 class FakeEvent:
@@ -120,6 +121,21 @@ def test_capture_chat_and_message_id(adapter):
     assert raw.source_chat_id == "@canal_a"
     assert raw.source_message_id == "77"
     assert raw.source_chat_title == "Canal A"
+
+
+def test_stale_message_ignored(test_settings):
+    from datetime import datetime, timedelta, timezone
+
+    adapter = TelegramAdapter(queue=AsyncMock(spec=RedisQueue),
+                              settings=Settings(STALE_AFTER_MINUTES=5))
+
+    fresh_date = datetime.now(timezone.utc) - timedelta(minutes=1)
+    old_date = datetime.now(timezone.utc) - timedelta(hours=1)
+
+    assert adapter._is_stale_message(FakeMessage(id=1, date=fresh_date)) is False
+    assert adapter._is_stale_message(FakeMessage(id=2, date=old_date)) is True
+    # Missing/None date is not treated as stale
+    assert adapter._is_stale_message(FakeMessage(id=3, date=None)) is False
 
 
 def test_chat_title_falls_back_to_username():

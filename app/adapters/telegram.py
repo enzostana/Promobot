@@ -152,9 +152,30 @@ class TelegramAdapter(MessageSource):
             logger.warning(f"[TELEGRAM] Erro ao baixar imagem da mensagem {message_id}: {e}")
         return None
 
+    def _is_stale_message(self, message) -> bool:
+        """True when the Telegram message date is older than STALE_AFTER_MINUTES."""
+        max_age = getattr(self.settings, "STALE_AFTER_MINUTES", 15)
+        if max_age <= 0:
+            return False
+        msg_date = getattr(message, "date", None)
+        if msg_date is None:
+            return False
+        try:
+            # Telethon returns naive UTC datetimes; normalize to aware UTC.
+            if msg_date.tzinfo is None:
+                msg_date = msg_date.replace(tzinfo=timezone.utc)
+            age_minutes = (datetime.now(timezone.utc) - msg_date).total_seconds() / 60.0
+            return age_minutes > max_age
+        except Exception:
+            return False
+
     async def _handle_event(self, event) -> None:
         message = event.message
         if not message:
+            return
+
+        if self._is_stale_message(message):
+            logger.info(f"[TELEGRAM] mensagem ignorada (antiga demais): {message.id}")
             return
 
         chat_id = str(event.chat_id)
