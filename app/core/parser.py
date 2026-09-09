@@ -36,13 +36,13 @@ class PromotionParser:
 
     # Price patterns
     PRICE_ORIGINAL_REGEX = re.compile(
-        r'(?i)(?:de|preço\s*original|de\s*r\$|de:)\s*:?\s*R?\$?\s*([0-9\.\,]+)'
+        r'(?i)(?:de|preço\s*original|de\s*r\$|de:)\s*:?\s*R?\$?\s*([0-9]+(?:[.,][0-9]+)*)'
     )
     PRICE_SALE_REGEX = re.compile(
-        r'(?i)(?:por|a\s*partir\s*de|apenas|por\s*r\$|por:)\s*:?\s*R?\$?\s*([0-9\.\,]+)'
+        r'(?i)(?:por|a\s*partir\s*de|apenas|por\s*r\$|por:)\s*:?\s*R?\$?\s*([0-9]+(?:[.,][0-9]+)*)'
     )
     PRICE_GENERIC_REGEX = re.compile(
-        r'R\$\s*([0-9\.\,]+)'
+        r'R\$\s*([0-9]+(?:[.,][0-9]+)*)'
     )
     DISCOUNT_EXPLICIT_REGEX = re.compile(
         r'(\d+(?:[\.,]\d+)?)\s*%\s*(?:OFF|off|de\s+desconto|desc\.?)'
@@ -288,12 +288,44 @@ class PromotionParser:
     def infer_category(self, text: str, title: str) -> Optional[str]:
         haystack = f"{title} {text}".lower()
         categories = {
-            "eletronicos": ["tv", "smart tv", "smartphone", "celular", "monitor", "fone", "bluetooth", "notebook", "tablet", "fone de ouvido"],
-            "informatica": ["teclado", "mouse", "ssd", "ram", "placa de vídeo", "processador", "pc gamer"],
-            "eletrodomesticos": ["geladeira", "fogao", "microondas", "air fryer", "aspirador", "maquina de lavar", "cafeteira"],
-            "games": ["playstation", "ps5", "xbox", "nintendo", "switch", "game", "console"],
-            "casa": ["panela", "travesseiro", "colchao", "sofa", "cadeira", "mesa"],
-            "moda": ["tenis", "camiseta", "calca", "mochila", "relogio"],
+            "tecnologia": [
+                "smart tv", "televisor", "tv", "televisao", "televisão",
+                "celular", "smartphone", "iphone", "android",
+                "fone de ouvido", "fone", "headset", "earbuds", "caixa de som", "barra de som",
+                "bluetooth", "notebook", "laptop", "tablet", "ipad",
+                "pc gamer", "computador", "desktop", "mini pc",
+                "teclado", "mouse", "monitor", "ssd", "hd externo", "memoria ram", "memória ram",
+                "placa de video", "placa de vídeo", "processador", "gabinete", "webcam", "impressora",
+                "roteador", "modem", "repetidor wifi", "camera de seguranca", "câmera de segurança",
+                "kindle", "camera", "câmera", "drone", "action cam", "projetor",
+                "smartwatch", "smart band", "relogio inteligente", "relógio inteligente",
+                "console", "playstation", "ps5", "xbox", "nintendo", "switch", "controle", "video game",
+                "carregador", "power bank", "cabo usb", "cadeira gamer", "suporte para monitor",
+            ],
+            "academia": [
+                "whey", "creatina", "pre-treino", "pré-treino", "termogenico", "termogênico",
+                "glutamina", "bcaa", "hipercalorico", "hipercalórico", "suplemento", "proteina", "proteína",
+                "halter", "anilha", "kettlebell", "barra fixa", "barra de dominada", "leg press",
+                "supino", "esteira", "bicicleta ergometrica", "bicicleta ergométrica",
+                "colchonete", "faixa elastica", "faixa elástica", "cama elastica", "cama elástica",
+                "trx", "legging", "dry fit", "regata", "tenis de corrida", "tênis de corrida",
+                "luva de musculacao", "luva de musculação", "luva de treino", "correia", "squeeze",
+                "coqueteleira", "shaker", "musculacao", "musculação", "treino", "fitness",
+                "academia", "ginastica", "ginástica", "crossfit",
+            ],
+            "eletrodomesticos": [
+                "geladeira", "refrigerador", "fogao", "fogão", "microondas", "micro-ondas",
+                "air fryer", "aspirador", "maquina de lavar", "máquina de lavar", "cafeteira",
+                "lava e seca", "forno",
+            ],
+            "casa": [
+                "panela", "travesseiro", "colchao", "colchão", "sofa", "sofá", "cadeira", "mesa",
+                "edredom", "cortina", "jogo de cama", "toalha", "utensilio", "utensílio",
+            ],
+            "moda": [
+                "tenis", "tênis", "camiseta", "calca", "calça", "mochila", "relogio", "relógio",
+                "bermuda", "jaqueta", "vestido", "blusa", "roupa", "jeans",
+            ],
         }
         for cat, keywords in categories.items():
             if any(re.search(r'\b' + re.escape(kw) + r'\b', haystack) for kw in keywords):

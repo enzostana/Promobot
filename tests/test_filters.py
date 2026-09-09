@@ -158,3 +158,49 @@ def test_filter_blocked_keyword(promo_filter):
     res = promo_filter.evaluate(promo)
     assert res.passed is False
     assert "Palavra-chave bloqueada" in res.reason
+
+
+def _category_promo(category, msg_id="c1", name="Produto"):
+    return Promotion(
+        source="telegram",
+        source_message_id=msg_id,
+        source_chat_id="@c",
+        original_text=f"Oferta de {name}",
+        product_name=name,
+        sale_price=50.0,
+        discount_percentage=25.0,
+        store="shopee",
+        category=category,
+        original_url="https://shopee.com.br/item/1",
+    )
+
+
+def test_allowed_categories_strict_blocks_unknown():
+    settings = Settings(
+        APP_ENV="test",
+        BLOCKED_STORES="",
+        ALLOWED_CATEGORIES="tecnologia,academia",
+    )
+    promo_filter = PromotionFilter(settings=settings)
+
+    ok = _category_promo("tecnologia")
+    assert promo_filter.evaluate(ok).passed is True
+
+    blocked = _category_promo("moda")
+    res = promo_filter.evaluate(blocked)
+    assert res.passed is False
+    assert "Categoria não permitida" in res.reason
+
+    # Unknown/missing category must also be blocked under a strict allowlist
+    unknown = _category_promo(None)
+    res = promo_filter.evaluate(unknown)
+    assert res.passed is False
+    assert "desconhecida" in res.reason
+
+
+def test_no_allowlist_allows_unknown_category():
+    settings = Settings(APP_ENV="test", BLOCKED_STORES="")
+    promo_filter = PromotionFilter(settings=settings)
+
+    assert promo_filter.evaluate(_category_promo(None)).passed is True
+    assert promo_filter.evaluate(_category_promo("tecnologia")).passed is True

@@ -58,13 +58,14 @@ class PromotionFilter:
                 reason=f"Categoria bloqueada: '{promotion.category}'"
             )
 
-        # 6. Check allowed categories
+        # 6. Check allowed categories (whitelist is strict: missing/unknown
+        # categories are rejected so only the configured niches are published)
         allowed_categories = self.settings.get_allowed_categories()
-        if allowed_categories and promotion.category:
-            if promotion.category.lower() not in allowed_categories:
+        if allowed_categories:
+            if promotion.category is None or promotion.category.lower() not in allowed_categories:
                 return FilterResult(
                     passed=False,
-                    reason=f"Categoria não permitida: '{promotion.category}'"
+                    reason=f"Categoria não permitida: '{promotion.category or 'desconhecida'}'"
                 )
 
         # 7. Check minimum discount percentage

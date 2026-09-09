@@ -32,7 +32,7 @@ def test_parse_message_with_prices(parser):
     assert parsed.discount_percentage == 24.0
     assert parsed.store == "amazon"
     assert parsed.original_url == "https://www.amazon.com.br/dp/B08N5WRWNW"
-    assert parsed.category == "eletronicos"
+    assert parsed.category == "tecnologia"
 
 
 def test_parse_message_without_price(parser):
@@ -101,7 +101,7 @@ def test_parse_message_messy_text(parser):
     assert parsed.original_price == 299.90
     assert parsed.sale_price == 99.90
     assert parsed.store == "shopee"
-    assert parsed.category == "eletronicos"
+    assert parsed.category == "tecnologia"
     assert parsed.discount_percentage is not None
     assert parsed.discount_percentage > 60.0
 
@@ -155,3 +155,39 @@ def test_identify_store_shopee_shortlinks(parser):
     assert parser.identify_store("https://br.shp.ee/SkFaqsyb") == "shopee"
     assert parser.identify_store("https://shp.ee/abc123") == "shopee"
     assert parser.identify_store("https://shopee.com.br/product/1/2") == "shopee"
+
+
+def test_price_parse_ignores_trailing_punctuation(parser):
+    text = (
+        "Confira Medidor de Pressão com 62% de desconto! "
+        "Somente R$37,99. Encontre agora!"
+    )
+    orig, sale = parser.extract_prices(text)
+    assert sale == 37.99
+    assert orig is None
+
+    text2 = "De: R$ 2.499,00. Por: R$ 1.899,00. Válido hoje!"
+    orig2, sale2 = parser.extract_prices(text2)
+    assert orig2 == 2499.0
+    assert sale2 == 1899.0
+
+
+def test_infer_category_technology(parser):
+    assert parser.infer_category("Smart TV Samsung 50 4K por R$ 1.899", "Smart TV") == "tecnologia"
+    assert parser.infer_category("Notebook Dell i7 com SSD 512GB", "Notebook") == "tecnologia"
+    assert parser.infer_category("Headset Gamer com microfone", "Headset") == "tecnologia"
+    assert parser.infer_category("Console Playstation 5", "PS5") == "tecnologia"
+    assert parser.infer_category("Smartphone Xiaomi Redmi", "Celular") == "tecnologia"
+
+
+def test_infer_category_academia(parser):
+    assert parser.infer_category("Whey Protein 1kg sabor chocolate", "Whey") == "academia"
+    assert parser.infer_category("Creatina 300g monohidratada", "Creatina") == "academia"
+    assert parser.infer_category("Kit Halteres ajustáveis com anilhas", "Halter") == "academia"
+    assert parser.infer_category("Legging fitness dry fit", "Legging") == "academia"
+    assert parser.infer_category("Esteira ergométrica para treino em casa", "Esteira") == "academia"
+
+
+def test_infer_category_unknown(parser):
+    assert parser.infer_category("Cupom Mercado Livre em SELECIONADOS! Compre agora", "Cupom") is None
+    assert parser.infer_category("Golden Retriever ração de cachorro", "Ração") is None

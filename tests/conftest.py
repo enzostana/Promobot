@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -5,6 +7,19 @@ from app.database.models import Base
 from app.config.settings import Settings
 from app.core.models import Promotion, PublicationResult
 from app.core.publisher import Publisher
+
+
+# Keep tests hermetic: pydantic-settings prefers real env vars over the repo
+# .env file, so pin the filter switches to clean defaults for every test run.
+for _filter_key in (
+    "ALLOWED_STORES",
+    "BLOCKED_STORES",
+    "ALLOWED_CATEGORIES",
+    "BLOCKED_CATEGORIES",
+    "BLOCKED_KEYWORDS",
+    "REQUIRED_KEYWORDS",
+):
+    os.environ[_filter_key] = ""
 
 
 @pytest.fixture
