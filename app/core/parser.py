@@ -29,7 +29,7 @@ class PromotionParser:
     STORE_DOMAINS = {
         "amazon": [r"amazon\.com(\.br)?", r"amzn\.to", r"a\.co"],
         "mercadolivre": [r"mercadolivre\.com(\.br)?", r"mercadolibre\.com", r"produto\.mercadolivre\.com\.br", r"meli\.la"],
-        "shopee": [r"shopee\.com\.br", r"shope\.ee", r"s\.shopee\.com\.br"],
+        "shopee": [r"shopee\.com\.br", r"shp\.ee", r"s\.shopee\.com\.br"],
         "magalu": [r"magazineluiza\.com\.br", r"magalu\.me"],
         "aliexpress": [r"aliexpress\.com", r"aliexpress\.com\.br", r"s\.click\.aliexpress\.com"],
     }

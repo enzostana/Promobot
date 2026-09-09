@@ -136,6 +136,38 @@ def test_shopee_provider():
     assert "oldtag" not in converted
 
 
+def test_shopee_shortlink_can_handle():
+    provider = ShopeeProvider(tag="shopee_promo_tag")
+
+    assert provider.can_handle("https://br.shp.ee/SkFaqsyb") is True
+    assert provider.can_handle("https://shp.ee/abc123") is True
+    assert provider._is_shortlink("https://br.shp.ee/SkFaqsyb") is True
+    assert provider._is_shortlink("https://shp.ee/abc123") is True
+    assert provider._is_shortlink("https://shopee.com.br/product/1/2") is False
+
+
+def test_shopee_shortlink_resolved_and_rewritten():
+    resolved = "https://shopee.com.br/product/1338519571/22797731885?d_id=10ca4&uls_trackid=abc&utm_content=1111"
+    provider = ShopeeProvider(tag="shopee_promo_tag", app_id="app_999",
+                              resolver=lambda u: resolved)
+
+    converted = provider.convert("https://br.shp.ee/SkFaqsyb")
+
+    assert converted.startswith("https://shopee.com.br/product/1338519571/22797731885")
+    assert "aff_trace_key=shopee_promo_tag" in converted
+    assert "app_id=app_999" in converted
+    assert "d_id" not in converted
+    assert "uls_trackid" not in converted
+    assert "utm_content" not in converted
+
+
+def test_shopee_shortlink_discard_on_resolution_failure():
+    provider = ShopeeProvider(tag="shopee_promo_tag",
+                              resolver=lambda u: "")
+
+    assert provider.convert("https://br.shp.ee/SkFaqsyb") == ""
+
+
 def test_affiliate_registry_routing(test_settings):
     registry = AffiliateRegistry(test_settings)
 

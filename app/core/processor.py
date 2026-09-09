@@ -136,6 +136,18 @@ class PromotionProcessor:
                 created_at=datetime.now(timezone.utc),
             )
 
+            # 3b. Discard when the affiliate link could not be generated
+            # (e.g. Shopee shortlink resolution failure) so nothing is
+            # published without the user's tracking tag.
+            if not affiliate_url:
+                logger.warning(f"[AFFILIATE] Link de afiliado não gerado para {parsed.original_url}; promoção descartada.")
+                promo.status = PromotionStatus.FILTERED_OUT
+                promo.filter_reason = "Falha na geração do link de afiliado"
+                if promo_repo:
+                    saved_model = await promo_repo.create(promo)
+                    promo.id = saved_model.id
+                return promo
+
             # 4. Deduplication check
             skip_dedup = raw_msg.source == "painel"
             if skip_dedup:

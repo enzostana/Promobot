@@ -149,3 +149,9 @@ def test_discount_calculation(parser):
     # Explicit discount in text overrides calculation
     disc_explicit = parser.extract_discount("Super desconto de 40% OFF no carrinho!", orig_price=200.0, sale_price=150.0)
     assert disc_explicit == 40.0
+
+
+def test_identify_store_shopee_shortlinks(parser):
+    assert parser.identify_store("https://br.shp.ee/SkFaqsyb") == "shopee"
+    assert parser.identify_store("https://shp.ee/abc123") == "shopee"
+    assert parser.identify_store("https://shopee.com.br/product/1/2") == "shopee"
