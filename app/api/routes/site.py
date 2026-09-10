@@ -7,7 +7,7 @@ from typing import List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -349,6 +349,11 @@ async def _read_meta(settings: Settings, db: AsyncSession) -> dict:
 
 @router.get("/", response_class=HTMLResponse)
 async def site_home(request: Request, db: AsyncSession = Depends(get_db)):
+    # MEL OAuth callback: the authorize URL returns here with ?code=...; forward
+    # to /mel/connect so its JavaScript can exchange the code for a refresh token.
+    if request.query_params.get("code"):
+        return RedirectResponse(f"/mel/connect?{request.url.query}", status_code=302)
+
     settings = get_settings()
     repo = PromotionRepository(db)
     models = await repo.list_promotions(
