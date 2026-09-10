@@ -1,6 +1,9 @@
+import base64
+import hashlib
 import html as _html
 import json
 import logging
+import secrets
 import urllib.parse
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -349,10 +352,16 @@ async def _read_meta(settings: Settings, db: AsyncSession) -> dict:
 
 @router.get("/", response_class=HTMLResponse)
 async def site_home(request: Request, db: AsyncSession = Depends(get_db)):
-    # MEL OAuth callback: the authorize URL returns here with ?code=...; forward
-    # to /mel/connect so its JavaScript can exchange the code for a refresh token.
+    # MEL OAuth callback: the authorize URL returns here with ?code=...; exchange
+    # the code server-side (PKCE-friendly) and show the result on /mel/connect.
     if request.query_params.get("code"):
-        return RedirectResponse(f"/mel/connect?{request.url.query}", status_code=302)
+        ok, error = await _exchange_oauth_code(request, request.query_params["code"], db)
+        response = RedirectResponse(
+            f"/mel/connect?{'connected=ok' if ok else 'exchange_error=' + urllib.parse.quote(error)}",
+            status_code=302,
+        )
+        response.delete_cookie(_MEL_COOKIE_VERIFIER, path="/")
+        return response
 
     settings = get_settings()
     repo = PromotionRepository(db)
@@ -655,6 +664,82 @@ class MelAuthIn(BaseModel):
     redirect_uri: str
 
 
+_MEL_COOKIE_VERIFIER = "mel_pkce_verifier"
+
+
+def _pkce_pair() -> "tuple[str, str]":
+    """Returns (code_verifier, code_challenge) for MEL's PKCE OAuth."""
+    verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    return verifier, challenge
+
+
+def _mel_pkce_verifier(state: str, request: Request) -> str:
+    """Recovers the code_verifier from the OAuth state or the browser cookie."""
+    if state.startswith("promobot."):
+        candidate = state[len("promobot."):]
+        if candidate:
+            return candidate
+    return request.cookies.get(_MEL_COOKIE_VERIFIER, "")
+
+
+async def _exchange_oauth_code(request: Request, code: str, db: AsyncSession) -> "tuple[bool, str]":
+    """Server-side exchange of the MEL authorization code (works with PKCE)."""
+    settings = get_settings()
+    repo = SettingRepository(db)
+    overrides = await repo.get_all()
+    resolved = resolve_values(settings, overrides)
+    client_id = (resolved.get("mel_api_client_id") or {}).get("value")
+    client_secret = (resolved.get("mel_api_client_secret") or {}).get("value")
+    if not client_id or not client_secret:
+        return False, "Client ID/Secret do app MEL não configurados."
+
+    verifier = _mel_pkce_verifier(request.query_params.get("state", ""), request)
+    data = {
+        "grant_type": "authorization_code",
+        "client_id": str(client_id),
+        "client_secret": str(client_secret),
+        "code": code,
+        "redirect_uri": settings.MEL_OAUTH_REDIRECT_URI,
+    }
+    if verifier:
+        data["code_verifier"] = verifier
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.post(MEL_API_TOKEN_URL, data=data)
+    except Exception as e:
+        logger.warning(f"[MEL-AUTH] falha de rede na troca de código: {e}")
+        return False, f"Falha de rede ao trocar o código: {e}"
+
+    if resp.status_code >= 400:
+        logger.warning(f"[MEL-AUTH] troca de código falhou: {resp.text[:200]}")
+        try:
+            detail = resp.json().get("error_description") or resp.json().get("error")
+        except Exception:
+            detail = resp.text[:200]
+        return False, str(detail)
+
+    data_resp = resp.json()
+    refresh_token = data_resp.get("refresh_token")
+    if not refresh_token:
+        return False, "O MEL não retornou refresh_token (escopo offline_access ausente)."
+
+    try:
+        await repo.upsert("mel_refresh_token", refresh_token)
+        await db.commit()
+    except Exception as e:
+        logger.warning(f"[MEL-AUTH] falha ao persistir refresh token: {e}")
+        return False, "Falha ao persistir o token."
+
+    try:
+        write_secret_file("mel_refresh_token", refresh_token)
+    except Exception:
+        pass
+    logger.info("[MEL-AUTH] refresh_token MEL armazenado com sucesso.")
+    return True, ""
+
+
 @router.get("/mel/connect", response_class=HTMLResponse, dependencies=AUTH)
 async def mel_connect_page(request: Request, db: AsyncSession = Depends(get_db)):
     settings = get_settings()
@@ -665,19 +750,30 @@ async def mel_connect_page(request: Request, db: AsyncSession = Depends(get_db))
     client_id = entry.get("value") or get_settings().MEL_API_CLIENT_ID
 
     authorize_url = ""
+    set_pkce_cookie = False
     if client_id:
+        verifier, challenge = _pkce_pair()
+        set_pkce_cookie = True
+        state = f"promobot.{verifier}"
         authorize_url = (
             f"{MEL_AUTH_URL}?response_type=code&client_id={urllib.parse.quote(str(client_id), safe='')}"
             f"&redirect_uri={urllib.parse.quote(settings.MEL_OAUTH_REDIRECT_URI, safe='')}"
-            "&state=promobot&scope=offline_access"
+            f"&state={urllib.parse.quote(state, safe='')}"
+            "&scope=offline_access"
+            f"&code_challenge={challenge}&code_challenge_method=S256"
         )
 
     has_code = bool(request.query_params.get("code"))
     has_error = request.query_params.get("error")
     error_msg = request.query_params.get("error_description")
+    connected = request.query_params.get("connected")
 
     status = ""
-    if has_code:
+    if connected == "ok":
+        status = '<div class="msg msg-ok">Conta conectada! O caçador do Mercado Livre começa a varrer nos próximos ciclos.</div>'
+    elif request.query_params.get("exchange_error"):
+        status = f'<div class="msg msg-err">Falha ao conectar: {esc(request.query_params.get("exchange_error", ""))}</div>'
+    elif has_code:
         status = """
         <div id="pulse" class="card">
           <p>Autorizando com o Mercado Livre… <span id="pulse-status">aguarde</span></p>
@@ -705,7 +801,7 @@ async def mel_connect_page(request: Request, db: AsyncSession = Depends(get_db))
           })();
         </script>
         """
-        status = status.replace("%RED%", urllib.parse.quote(settings.MEL_OAUTH_REDIRECT_URI, safe=""))
+        status = status.replace("%RED%", settings.MEL_OAUTH_REDIRECT_URI)
     elif has_error:
         status = f'<div class="msg msg-err">Erro no Mercado Livre: {esc(error_msg or has_error)}</div>'
     else:
@@ -726,46 +822,18 @@ async def mel_connect_page(request: Request, db: AsyncSession = Depends(get_db))
     </div>
     """
     meta = await _read_meta(get_settings(), db) | _meta_defaults(settings, request)
-    return HTMLResponse(_page_shell("Conectar Mercado Livre", settings, request, content, meta))
+    response = HTMLResponse(_page_shell("Conectar Mercado Livre", settings, request, content, meta))
+    if set_pkce_cookie:
+        response.set_cookie(
+            _MEL_COOKIE_VERIFIER, verifier,
+            max_age=600, httponly=True, samesite="lax", path="/",
+        )
+    return response
 
 
 @router.post("/api/site/mel/auth", dependencies=AUTH)
-async def api_site_mel_auth(payload: MelAuthIn, db: AsyncSession = Depends(get_db)):
-    settings = get_settings()
-    repo = SettingRepository(db)
-    overrides = await repo.get_all()
-    resolved = resolve_values(settings, overrides)
-    client_id = (resolved.get("mel_api_client_id") or {}).get("value")
-    client_secret = (resolved.get("mel_api_client_secret") or {}).get("value")
-    if not client_id or not client_secret:
-        raise HTTPException(status_code=400, detail="Client ID/Secret do app MEL não configurados.")
-
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        resp = await client.post(
-            MEL_API_TOKEN_URL,
-            data={
-                "grant_type": "authorization_code",
-                "client_id": str(client_id),
-                "client_secret": str(client_secret),
-                "code": payload.code,
-                "redirect_uri": payload.redirect_uri,
-            },
-        )
-
-    if resp.status_code >= 400:
-        logger.warning(f"[MEL-AUTH] troca de código falhou: {resp.text[:200]}")
-        raise HTTPException(status_code=400, detail="Código inválido ou expirado. Tente autorizar novamente.")
-
-    data = resp.json()
-    refresh_token = data.get("refresh_token")
-    if not refresh_token:
-        raise HTTPException(status_code=400, detail="O Mercado Livre não retornou refresh_token (escopo offline_access ausente).")
-
-    await repo.upsert("mel_refresh_token", refresh_token)
-    await db.commit()
-    try:
-        write_secret_file("mel_refresh_token", refresh_token)
-    except Exception:
-        pass
-
-    return {"ok": True, "expires_in": data.get("expires_in"), "scope": data.get("scope")}
+async def api_site_mel_auth(payload: MelAuthIn, request: Request, db: AsyncSession = Depends(get_db)):
+    ok, error = await _exchange_oauth_code(request, payload.code, db)
+    if not ok:
+        raise HTTPException(status_code=400, detail=error or "Falha ao conectar.")
+    return {"ok": True}
