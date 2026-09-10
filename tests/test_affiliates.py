@@ -92,36 +92,41 @@ def test_mercadolivre_provider_injects_user_matt_word():
     assert "utm_source" not in converted
 
 
-def test_mercadolivre_provider_route_profile():
+def test_mercadolivre_provider_convert_single_product_with_tag():
     provider = MercadoLivreProvider(tag="12520971", word="rufinobr", route="profile")
 
     converted = provider.convert("https://www.mercadolivre.com.br/some-product/p/MLB54075534")
 
-    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+    # Posts must link the single product — never the affiliate's /social/ list.
+    assert converted.startswith("https://www.mercadolivre.com.br/some-product/p/MLB54075534")
+    assert "social/rufinobr" not in converted
     assert "matt_tool=12520971" in converted
     assert "matt_word=rufinobr" in converted
-    assert "forceInApp=true" in converted
+    assert "forceInApp" not in converted
 
 
-def test_mercadolivre_provider_route_profile_shortlink():
+def test_mercadolivre_provider_single_product_shortlink_fallback():
     provider = MercadoLivreProvider(tag="12520971", word="rufinobr", route="profile")
     provider._resolver = lambda url: "https://www.mercadolivre.com.br/social/thautec?ref=SIGNED"
+    provider._page_fetcher = lambda url: "<html><body>sem produto</body></html>"
 
     converted = provider.convert("https://meli.la/25aHuyj")
 
-    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+    assert "social/rufinobr" not in converted
+    assert converted.startswith("https://www.mercadolivre.com.br/social/thautec?")
     assert "matt_tool=12520971" in converted
     assert "matt_word=rufinobr" in converted
     assert "ref=" not in converted
 
 
-def test_mercadolivre_provider_route_profile_without_word_falls_back():
+def test_mercadolivre_provider_without_word_single_product():
     provider = MercadoLivreProvider(tag="12520971", route="profile")
     provider._resolver = lambda url: "https://www.mercadolivre.com.br/social/thautec"
+    provider._page_fetcher = lambda url: "<html><body>sem produto</body></html>"
 
     converted = provider.convert("https://meli.la/25aHuyj")
 
-    # Falls back to product routing (no matt_word set)
+    # No matt_word: still a single product (or resolved) link, never the list.
     assert "social/rufinobr" not in converted
     assert "matt_tool=12520971" in converted
 
@@ -166,7 +171,7 @@ def test_mercadolivre_provider_shortlink_page_without_product_keeps_resolved_url
     assert converted.startswith("https://www.mercadolivre.com.br/social/guru?")
     assert "matt_tool=12520971" in converted
     assert "matt_tool=73920577" not in converted
-    assert "ref=XYZ" in converted
+    assert "ref=" not in converted
 
 
 def test_mercadolivre_resolver_follows_redirect():
@@ -331,7 +336,7 @@ def test_meli_provider_convert_uses_official_link():
     assert converted == "https://mercadolivre.com/sec/1AbCdEf"
 
 
-def test_meli_provider_mint_disabled_keeps_profile_route():
+def test_meli_provider_mint_disabled_returns_single_product():
     provider = MercadoLivreProvider(
         tag="12520971", word="rufinobr", route="profile",
         mint=False, session="ssid-secreto",
@@ -339,7 +344,8 @@ def test_meli_provider_mint_disabled_keeps_profile_route():
 
     converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
 
-    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+    assert converted.startswith("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+    assert "social/rufinobr" not in converted
     assert "matt_tool=12520971" in converted
 
 
@@ -363,7 +369,10 @@ def test_meli_provider_falls_back_on_111():
 
     converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
 
-    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+    # Mint rejeitou o produto: cai na PÁGINA DO PRODUTO, nunca na lista do perfil.
+    assert converted.startswith("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+    assert "social/rufinobr" not in converted
+    assert "matt_tool=12520971" in converted
 
 
 def test_meli_provider_falls_back_on_403():
@@ -378,7 +387,8 @@ def test_meli_provider_falls_back_on_403():
 
     converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
 
-    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+    assert converted.startswith("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+    assert "social/rufinobr" not in converted
 
 
 def test_meli_provider_falls_back_on_429():
@@ -393,8 +403,9 @@ def test_meli_provider_falls_back_on_429():
 
     converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
 
-    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+    assert converted.startswith("https://www.mercadolivre.com.br/produto/p/MLB54075534")
     assert "sec/" not in converted
+    assert "social/rufinobr" not in converted
 
 
 def test_meli_provider_without_session_falls_back():
@@ -405,10 +416,61 @@ def test_meli_provider_without_session_falls_back():
 
     converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
 
-    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+    assert converted.startswith("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+    assert "social/rufinobr" not in converted
 
 
 def test_meli_provider_cannotize_rejects_non_product_urls():
     provider = MercadoLivreProvider(tag="12520971", mint=True, session="ssid")
     assert provider._minter.canonicalize("https://www.mercadolivre.com.br/ofertas") == ""
     assert provider._minter.canonicalize("") == ""
+
+
+def test_meli_canonicalize_cleans_query_fragment_and_accepts_item_url():
+    minter = MeliLinkMinter(ssid="ssid")
+
+    catalog = minter.canonicalize(
+        "https://www.mercadolivre.com.br/smartwatch-x/p/MLB46211942?pdp_filters=deal%3AMLB779362-1"
+        "#polycard_client=offers&position=26&tracking_id=abc"
+    )
+    assert catalog == "https://www.mercadolivre.com.br/smartwatch-x/p/MLB46211942"
+
+    item = minter.canonicalize(
+        "https://produto.mercadolivre.com.br/MLB-5643170848-tnis-adidas-_JM?searchVariation=1#pos=1"
+    )
+    assert item == "https://produto.mercadolivre.com.br/MLB-5643170848-tnis-adidas-_JM"
+
+
+def test_meli_rewrite_drops_offer_page_params_and_fragment():
+    provider = MercadoLivreProvider(tag="12520971", word="rufinobr")
+
+    converted = provider.convert(
+        "https://www.mercadolivre.com.br/impressora-x/p/MLB62998911"
+        "?pdp_filters=deal%3AMLB123-1&matt_tool=73920577"
+        "#polycard_client=offers&deal_print_id=zzz&tracking_id=ttt&wid=MLB99&sid=offers"
+    )
+
+    assert converted.startswith("https://www.mercadolivre.com.br/impressora-x/p/MLB62998911?")
+    assert "matt_tool=12520971" in converted
+    assert "matt_tool=73920577" not in converted
+    assert "pdp_filters" not in converted
+    assert "wid=" not in converted
+    assert "#" not in converted
+
+
+def test_meli_minter_logs_non_111_error(caplog):
+    def handler(request):
+        return httpx.Response(200, json={
+            "urls": [{
+                "origin_url": "https://www.mercadolivre.com.br/produto/p/MLB55",
+                "error_code": 5004,
+                "message": "algum erro novo",
+            }],
+        })
+
+    minter = MeliLinkMinter(ssid="ssid-secreto", transport=_mint_transport(handler))
+    result = minter.create_links(["https://www.mercadolivre.com.br/produto/p/MLB55?x=1"])
+
+    assert result == {}
+    assert "error_code=5004" in caplog.text
+    assert "origin_url" in caplog.text

@@ -169,6 +169,11 @@ class MercadoLivreProvider(AffiliateProvider):
     def _rewrite_tracking(self, url: str) -> str:
         """Drops third-party MELI tracking params and injects the user's tag.
 
+        Essentially cleans the URL down to a single product page bound to the
+        user's attribution (matt_tool + matt_word). The fragment and the channel
+        offer/deal params (#polycard_client, pdp_filters, deal_print_id, ...) are
+        removed so visitors land on the product itself — never on a listing page.
+
         matt_word (the affiliate's campaign/profile handle) is kept as the user's
         own value: the product page uses it to bind attribution for the affiliate
         headline/banner shown to visitors.
@@ -176,8 +181,12 @@ class MercadoLivreProvider(AffiliateProvider):
         parsed = urllib.parse.urlparse(url)
         params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
 
-        # Remove channel-provided and extraneous tracking params
-        tracking_params = ["matt_tool", "matt_word", "tracking_id", "utm_source", "utm_medium", "utm_campaign"]
+        # Remove channel-provided, offer-page and extraneous tracking params
+        tracking_params = [
+            "matt_tool", "matt_word", "tracking_id", "utm_source", "utm_medium", "utm_campaign",
+            "pdp_filters", "polycard_client", "deal_print_id", "position", "sid",
+            "wid", "searchVariation", "ref",
+        ]
         for p in tracking_params:
             params.pop(p, None)
 
@@ -187,14 +196,14 @@ class MercadoLivreProvider(AffiliateProvider):
             params["matt_word"] = [self.word]
 
         new_query = urllib.parse.urlencode(params, doseq=True)
-        return urllib.parse.urlunparse(parsed._replace(query=new_query))
+        return urllib.parse.urlunparse(parsed._replace(query=new_query, fragment=""))
 
     def _build_social_url(self) -> str:
-        """Official-shape link routing through the affiliate's social profile.
+        """Legacy profile-page link (the affiliate's full product list).
 
-        Mirrors the format MELI's own Gerador de Links emits (minus the signed
-        per-link ref token, which cannot be forged): the follower lands on the
-        affiliated profile page and product clicks there carry attribution.
+        Kept only for reference: posts must link the single offered product, so
+        this is no longer used by ``convert``. Visitors landing here see the whole
+        list, which is exactly what we avoid.
         """
         parsed = urllib.parse.urlparse("https://www.mercadolivre.com.br/social/")
         params = {"forceInApp": "true"}
@@ -238,14 +247,19 @@ class MercadoLivreProvider(AffiliateProvider):
         if not url:
             return ""
 
+        # Preferred: official minted link — lands on the single product with the
+        # affiliate's headline attribution.
         official = self._try_mint(url)
         if official:
             return official
 
-        if self.route == "profile":
-            if self.word:
-                return self._build_social_url()
-            logger.warning("[MELI] MERCADOLIVRE_ROUTE=profile sem MERCADOLIVRE_WORD; usando rota de produto.")
+        # Fallback: the single product page bound to the user's tag. Never the
+        # affiliate's /social/ listing page.
+        if self._minter:
+            canonical = self._minter.canonicalize(url)
+            if canonical:
+                logger.info(f"[MELI] Mint indisponível; fallback para produto: {canonical}")
+                return self._rewrite_tracking(canonical)
 
         if self._is_shortlink(url):
             resolved = self._resolver(url)

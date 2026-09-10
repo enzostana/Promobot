@@ -23,6 +23,11 @@ _CANONICAL_PRODUCT_RE = re.compile(
     r'https://www\.mercadolivre\.com\.br/(?:[^?#]*/p/MLB\d+)(?:[/?#]|$)',
     re.IGNORECASE,
 )
+# Item pages (produto.mercadolivre.com.br/MLB-####-<slug>-_JM) also carry an MLB id.
+_ITEM_PRODUCT_RE = re.compile(
+    r'https://produto\.mercadolivre\.com\.br/MLB-?\d+-[^?#]+',
+    re.IGNORECASE,
+)
 _SLL_PATTERN = re.compile(r's\.meli\.la|meli\.la', re.IGNORECASE)
 
 
@@ -149,7 +154,7 @@ class MeliLinkMinter:
         return self._tag_in_use or (self._word or "")
 
     def canonicalize(self, url: str) -> str:
-        """Resolves short links and normalizes to a canonical /p/MLB product URL."""
+        """Resolves short links and normalizes to a clean product URL (no query/fragment)."""
         url = url.strip().strip("\"'")
 
         if _SLL_PATTERN.search(urllib.parse.urlparse(url).netloc):
@@ -159,9 +164,9 @@ class MeliLinkMinter:
             except Exception:
                 return ""
 
-        if _CANONICAL_PRODUCT_RE.match(url):
+        if _CANONICAL_PRODUCT_RE.match(url) or _ITEM_PRODUCT_RE.match(url):
             parsed = urllib.parse.urlparse(url)
-            return urllib.parse.urlunparse(parsed._replace(query=""))
+            return urllib.parse.urlunparse(parsed._replace(query="", fragment=""))
         return ""
 
     def create_links(self, urls: List[str]) -> Dict[str, str]:
@@ -194,14 +199,21 @@ class MeliLinkMinter:
                     raise MeliMintError(f"createLink respondeu HTTP {resp.status_code}.")
 
                 body = resp.json()
-                for entry in body.get("urls", []):
+                entries = body.get("urls") or []
+                if not entries:
+                    logger.warning(f"[MELI-MINT] createLink 200 sem entries; corpo: {str(body)[:300]}")
+                for entry in entries:
                     origin = entry.get("origin_url")
                     short = entry.get("short_url")
                     if origin and short:
                         self._cache[(origin, "official")] = short
                         result[origin] = short
-                    elif entry.get("error_code") in (111,):
-                        logger.warning("[MELI-MINT] URL inelegível (111): %s", origin)
+                    elif origin:
+                        error_code = entry.get("error_code")
+                        logger.warning(
+                            f"[MELI-MINT] sem short_url: {origin} (error_code={error_code}, "
+                            f"chaves={sorted(entry)[:8]})"
+                        )
             finally:
                 client.close()
 
