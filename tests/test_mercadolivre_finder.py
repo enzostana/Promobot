@@ -187,6 +187,83 @@ async def test_scan_enqueues_matching_offer():
 
 
 @pytest.mark.asyncio
+async def test_scan_multipage_dedupes_across_pages():
+    page1 = _offers_page_html()
+    page2 = page1 + _card(
+        "Smart tv 50 4K UHD",
+        "https://produto.mercadolivre.com.br/MLB-3001-smart-tv-50-4k-_JM",
+        "https://http2.mlstatic.com/D_NQ_NP_2x_tv-I.jpg",
+        "4000 reais",
+        "1800 reais",
+    )
+    # O mesmo produto aparece nas duas páginas (permutação de vitrine).
+    shared_item = _card(
+        "Fone bluetooth TWS Pro",
+        "https://produto.mercadolivre.com.br/MLB-1001-fone-bluetooth-tws-pro-_JM",
+        "https://http2.mlstatic.com/D_NQ_NP_2x_fone-I.jpg",
+        "200 reais com 0 centavos",
+        "100 reais",
+    )
+    page2 += shared_item
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("page") == "2":
+            return httpx.Response(200, text=page2)
+        return httpx.Response(200, text=page1)
+
+    finder = MercadoLivreFinder(
+        _finder_settings(
+            MEL_FINDER_KEYWORDS="fone bluetooth,smart tv",
+            MEL_FINDER_PAGES=2,
+            MEL_FINDER_MAX_PRICE=5000,
+        ),
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    class RecordingQueue:
+        def __init__(self):
+            self.items = []
+
+        async def enqueue(self, raw):
+            self.items.append(raw)
+
+    queue = RecordingQueue()
+    found = await finder.scan(queue)
+    # página 1: MLB-1001 (fone) + MLB-1004 (Smart TV R$900, agora dentro do teto 5000);
+    # página 2: MLB-3001 (Smart TV 4K) + dedup de MLB-1001
+    assert found == 3
+    items = [q.source_message_id for q in queue.items]
+    assert items == ["mel-scrape-1001", "mel-scrape-1004", "mel-scrape-3001"]
+
+
+@pytest.mark.asyncio
+async def test_keyword_match_ignores_accents():
+    html = _offers_page_html() + _card(
+        "Kit 2 Câmeras de Segurança WiFi",
+        "https://produto.mercadolivre.com.br/MLB-4001-cameras-seg-wifi-_JM",
+        "https://http2.mlstatic.com/D_NQ_NP_2x_cam-I.jpg",
+        "300 reais",
+        "150 reais",
+    )
+    finder = MercadoLivreFinder(
+        _finder_settings(MEL_FINDER_KEYWORDS="camera"),
+        client=_mock_client_for(html),
+    )
+
+    class RecordingQueue:
+        def __init__(self):
+            self.items = []
+
+        async def enqueue(self, raw):
+            self.items.append(raw)
+
+    queue = RecordingQueue()
+    found = await finder.scan(queue)
+    assert found == 1
+    assert queue.items[0].source_message_id == "mel-scrape-4001"
+
+
+@pytest.mark.asyncio
 async def test_credentials_not_required_for_scraping():
     finder = MercadoLivreFinder(_finder_settings(MEL_API_CLIENT_ID=""))
     assert finder.credentials_ok() is True

@@ -191,3 +191,12 @@ def test_infer_category_academia(parser):
 def test_infer_category_unknown(parser):
     assert parser.infer_category("Cupom Mercado Livre em SELECIONADOS! Compre agora", "Cupom") is None
     assert parser.infer_category("Golden Retriever ração de cachorro", "Ração") is None
+
+
+def test_infer_category_tolerates_accents_and_plural(parser):
+    assert parser.infer_category("Kit 2 Câmeras de Segurança WiFi", "Câmeras") == "tecnologia"
+    assert parser.infer_category("Smart Watch Fit Pro 5ATM", "Smart watch") == "tecnologia"
+    assert parser.infer_category("Smartphones Samsung Galaxy A36", "Celulares") == "tecnologia"
+    assert parser.infer_category("Kit Halteres ajustáveis com anilhas", "Halteres") == "academia"
+    assert parser.infer_category("Tênis de corrida Neutro", "Tênis") == "academia"
+    assert parser.infer_category("Pré-Treino 300g", "Pré-treino") == "academia"

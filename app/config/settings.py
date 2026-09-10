@@ -97,6 +97,7 @@ class Settings(BaseSettings):
     MEL_FINDER_MIN_DISCOUNT: float = 20.0
     MEL_FINDER_MAX_PRICE: float = 500.0
     MEL_FINDER_INTERVAL_MIN: int = 30
+    MEL_FINDER_PAGES: int = 3
 
     # Site público (Rufino Promo)
     SITE_TITLE: str = "Rufino Promo"

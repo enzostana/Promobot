@@ -9,6 +9,7 @@ import httpx
 from app.config.settings import Settings
 from app.core.formatter import PromotionFormatter
 from app.core.models import RawMessage
+from app.core.parser import _fold_text
 
 logger = logging.getLogger(__name__)
 
@@ -174,8 +175,8 @@ class MercadoLivreFinder:
                 return False
             if st.MEL_FINDER_MAX_PRICE and offer["price"] > st.MEL_FINDER_MAX_PRICE:
                 return False
-            title = (offer["product_name"] or "").lower()
-            if self.keywords and not any(k.lower() in title for k in self.keywords):
+            title = _fold_text(offer["product_name"] or "")
+            if self.keywords and not any(_fold_text(k) in title for k in self.keywords):
                 return False
         except Exception:
             return False
@@ -212,23 +213,27 @@ class MercadoLivreFinder:
         return await self._scan_with(self._client, queue, limit)
 
     async def _scan_with(self, client, queue, limit: int) -> int:
-        resp = await client.get(OFFERS_URL, headers=UA_HEADERS)
-        if resp.status_code >= 400:
-            logger.warning(f"[FINDER-MEL] página de ofertas http {resp.status_code}: {resp.text[:200]}")
-            resp.raise_for_status()
-        offers = self._parse_offers(resp.text)
-
+        pages = max(1, int(getattr(self.settings, "MEL_FINDER_PAGES", 1) or 1))
         seen = set()
         total = 0
-        for offer in offers:
-            if not self._passes(offer):
+        for page in range(1, pages + 1):
+            url = OFFERS_URL if page == 1 else f"{OFFERS_URL}?page={page}"
+            resp = await client.get(url, headers=UA_HEADERS)
+            if resp.status_code >= 400:
+                logger.warning(
+                    f"[FINDER-MEL] página de ofertas http {resp.status_code}: {resp.text[:200]}"
+                )
                 continue
-            if offer["permalink"] in seen:
-                continue
-            seen.add(offer["permalink"])
-            raw = self.build_message(offer)
-            await queue.enqueue(raw)
-            total += 1
-            if limit and total >= limit:
-                break
+            offers = self._parse_offers(resp.text)
+            for offer in offers:
+                if not self._passes(offer):
+                    continue
+                if offer["permalink"] in seen:
+                    continue
+                seen.add(offer["permalink"])
+                raw = self.build_message(offer)
+                await queue.enqueue(raw)
+                total += 1
+                if limit and total >= limit:
+                    return total
         return total

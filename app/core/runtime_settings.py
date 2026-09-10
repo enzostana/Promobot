@@ -53,6 +53,7 @@ EDITABLE_KEYS: Dict[str, Tuple[str, str, bool, str]] = {
     "mel_finder_min_discount": ("MEL_FINDER_MIN_DISCOUNT", "float", False, "Desconto mínimo p/ publicar (%)"),
     "mel_finder_max_price": ("MEL_FINDER_MAX_PRICE", "float", False, "Preço máximo (R$)"),
     "mel_finder_interval_min": ("MEL_FINDER_INTERVAL_MIN", "int", False, "Intervalo entre varreduras (min)"),
+    "mel_finder_pages": ("MEL_FINDER_PAGES", "int", False, "Qtd de páginas de ofertas a varrer"),
 }
 
 SECTIONS: Dict[str, List[str]] = {
@@ -69,7 +70,7 @@ SECTIONS: Dict[str, List[str]] = {
         "shopee_finder_min_rating", "shopee_finder_max_price", "shopee_finder_interval_min",
         "mel_api_client_id", "mel_api_client_secret", "mel_finder_enabled",
         "mel_finder_keywords", "mel_finder_min_discount", "mel_finder_max_price",
-        "mel_finder_interval_min", "mel_refresh_token",
+        "mel_finder_interval_min", "mel_finder_pages", "mel_refresh_token",
     ],
 }
 

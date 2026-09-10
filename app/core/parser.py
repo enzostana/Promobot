@@ -1,7 +1,14 @@
 import re
+import unicodedata
 import urllib.parse
 from typing import List, Optional, Tuple
 from app.core.models import ParsedPromotion, RawMessage
+
+
+def _fold_text(text: str) -> str:
+    """Remove acentuação e normaliza para minúsculas (ex.: 'Câmeras' → 'cameras')."""
+    normalized = unicodedata.normalize("NFKD", text or "")
+    return "".join(c for c in normalized if not unicodedata.combining(c)).lower()
 
 
 class PromotionParser:
@@ -286,7 +293,7 @@ class PromotionParser:
         return title
 
     def infer_category(self, text: str, title: str) -> Optional[str]:
-        haystack = f"{title} {text}".lower()
+        haystack = _fold_text(f"{title} {text}")
         categories = {
             "tecnologia": [
                 "smart tv", "televisor", "tv", "televisao", "televisão",
@@ -298,7 +305,7 @@ class PromotionParser:
                 "placa de video", "placa de vídeo", "processador", "gabinete", "webcam", "impressora",
                 "roteador", "modem", "repetidor wifi", "camera de seguranca", "câmera de segurança",
                 "kindle", "camera", "câmera", "drone", "action cam", "projetor",
-                "smartwatch", "smart band", "relogio inteligente", "relógio inteligente",
+                "smartwatch", "smart watch", "smart band", "relogio inteligente", "relógio inteligente",
                 "console", "playstation", "ps5", "xbox", "nintendo", "switch", "controle", "video game",
                 "carregador", "power bank", "cabo usb", "cadeira gamer", "suporte para monitor",
             ],
@@ -328,8 +335,12 @@ class PromotionParser:
             ],
         }
         for cat, keywords in categories.items():
-            if any(re.search(r'\b' + re.escape(kw) + r'\b', haystack) for kw in keywords):
-                return cat
+            for kw in keywords:
+                # Tolerância a acentos e a flexões de plural ('câmeras' → 'camera',
+                # 'halteres' → 'halter', 'celulares' → 'celular').
+                pat = r"\b" + re.escape(_fold_text(kw)) + r"(?:s|es)?\b"
+                if re.search(pat, haystack):
+                    return cat
         return None
 
     def _extract_description(self, text: str) -> Optional[str]:
