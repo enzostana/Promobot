@@ -67,6 +67,20 @@ def test_mercadolivre_provider():
 
     converted = provider.convert(url)
     assert "matt_tool=meu_afiliado_meli" in converted
+    assert "matt_word" not in converted
+    assert "utm_source" not in converted
+
+
+def test_mercadolivre_provider_injects_user_matt_word():
+    provider = MercadoLivreProvider(tag="12520971", word="rufinobr")
+    url = "https://www.mercadolivre.com.br/smart-tv-semp-43/p/MLB54075534?matt_word=canal&matt_tool=73920577&utm_source=telegram"
+
+    converted = provider.convert(url)
+
+    assert "matt_tool=12520971" in converted
+    assert "matt_word=rufinobr" in converted
+    assert "matt_tool=73920577" not in converted
+    assert "matt_word=canal" not in converted
     assert "utm_source" not in converted
 
 

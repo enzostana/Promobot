@@ -42,6 +42,10 @@ class TelegramAdapter(MessageSource):
         self._running = False
 
     def _init_client(self) -> Optional[TelegramClient]:
+        if not self.settings.TELEGRAM_LISTENER_ENABLED:
+            logger.info("[TELEGRAM] Listener desabilitado via TELEGRAM_LISTENER_ENABLED=false")
+            return None
+
         api_id = self.settings.TELEGRAM_API_ID
         api_hash = self.settings.TELEGRAM_API_HASH
         if not api_id or not api_hash:

@@ -45,9 +45,11 @@ class MercadoLivreProvider(AffiliateProvider):
 
     def __init__(self,
                  tag: Optional[str] = None,
+                 word: Optional[str] = None,
                  resolver: Optional[Callable[[str], str]] = None,
                  page_fetcher: Optional[Callable[[str], str]] = None):
         self.tag = tag
+        self.word = word
         self._resolver = resolver or self._resolve_shortlink
         self._page_fetcher = page_fetcher or self._fetch_page
 
@@ -139,7 +141,12 @@ class MercadoLivreProvider(AffiliateProvider):
         return f"https://www.mercadolivre.com.br/{best_slug}", best_mlb
 
     def _rewrite_tracking(self, url: str) -> str:
-        """Drops third-party MELI tracking params and injects the user's tag."""
+        """Drops third-party MELI tracking params and injects the user's tag.
+
+        matt_word (the affiliate's campaign/profile handle) is kept as the user's
+        own value: the product page uses it to bind attribution for the affiliate
+        headline/banner shown to visitors.
+        """
         parsed = urllib.parse.urlparse(url)
         params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
 
@@ -150,6 +157,8 @@ class MercadoLivreProvider(AffiliateProvider):
 
         if self.tag:
             params["matt_tool"] = [self.tag]
+        if self.word:
+            params["matt_word"] = [self.word]
 
         new_query = urllib.parse.urlencode(params, doseq=True)
         return urllib.parse.urlunparse(parsed._replace(query=new_query))

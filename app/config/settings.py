@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     TELEGRAM_SESSION_NAME: str = "promobot_session"
     TELEGRAM_SOURCE_CHATS: str = ""
     TELEGRAM_TARGET_CHAT: Optional[str] = None
+    TELEGRAM_LISTENER_ENABLED: bool = True
 
     # WhatsApp (Evolution API) - no defaults for secrets
     EVOLUTION_URL: str = "http://evolution-api:8080"
@@ -69,6 +70,7 @@ class Settings(BaseSettings):
     # Affiliate Providers - no defaults for secrets
     AMAZON_TAG: Optional[str] = None
     MERCADOLIVRE_TAG: Optional[str] = None
+    MERCADOLIVRE_WORD: Optional[str] = None
     SHOPEE_APP_ID: Optional[str] = None
     SHOPEE_TAG: Optional[str] = None
 
