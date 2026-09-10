@@ -243,9 +243,27 @@ class MercadoLivreProvider(AffiliateProvider):
             logger.info("[MELI] Link oficial mintado para o produto.")
         return short
 
+    def _is_own_official_link(self, url: str) -> bool:
+        """True when the shortlink already resolves to this affiliate's headline page.
+
+        Official minted /sec links resolve to ``/social/<word>?ref=<signed>`` — the
+        page that renders the product's headline. Passing them through unchanged keeps
+        the headline; re-resolving them into a bare product URL loses it.
+        """
+        if not self.word or not self._is_shortlink(url):
+            return False
+        resolved = self._resolver(url)
+        return bool(resolved and f"/social/{self.word}" in resolved)
+
     def convert(self, url: str) -> str:
         if not url:
             return ""
+
+        # Already an official link of this affiliate (minted earlier): keep it so
+        # the headline is preserved.
+        if self._is_own_official_link(url):
+            logger.info("[MELI] Link oficial do afiliado detectado; mantendo intacto.")
+            return url
 
         # Preferred: official minted link — lands on the single product with the
         # affiliate's headline attribution.

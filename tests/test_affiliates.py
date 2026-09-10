@@ -174,6 +174,28 @@ def test_mercadolivre_provider_shortlink_page_without_product_keeps_resolved_url
     assert "ref=" not in converted
 
 
+def test_mercadolivre_provider_keeps_own_official_link():
+    provider = MercadoLivreProvider(tag="12520971", word="rufinobr")
+    provider._resolver = lambda url: "https://www.mercadolivre.com.br/social/rufinobr?ref=SIGNEDX"
+
+    converted = provider.convert("https://meli.la/27AVDj7")
+
+    # Official /sec link of the own affiliate is kept untouched (headline preserved).
+    assert converted == "https://meli.la/27AVDj7"
+
+
+def test_mercadolivre_provider_foreign_shortlink_is_rebound_not_kept():
+    provider = MercadoLivreProvider(tag="12520971", word="rufinobr")
+    provider._resolver = lambda url: "https://www.mercadolivre.com.br/social/thautec?ref=SIGNED"
+    provider._page_fetcher = lambda url: "<html><body>sem produto</body></html>"
+
+    converted = provider.convert("https://meli.la/1BftLww")
+
+    assert converted != "https://meli.la/1BftLww"
+    assert "social/rufinobr" not in converted
+    assert "matt_tool=12520971" in converted
+
+
 def test_mercadolivre_resolver_follows_redirect():
     provider = MercadoLivreProvider(tag="12520971")
     converted = provider.convert("https://meli.la/28DwKXE")
