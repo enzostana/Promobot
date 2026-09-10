@@ -27,3 +27,11 @@ class SettingRepository:
         else:
             self.session.add(SettingModel(key=key, value=value))
         await self.session.flush()
+
+    async def delete(self, key: str) -> None:
+        stmt = select(SettingModel).where(SettingModel.key == key)
+        result = await self.session.execute(stmt)
+        row = result.scalar_one_or_none()
+        if row:
+            await self.session.delete(row)
+            await self.session.flush()

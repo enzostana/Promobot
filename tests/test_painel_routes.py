@@ -75,6 +75,36 @@ async def test_painel_routes(async_db_session, monkeypatch):
         repo = SettingRepository(async_db_session)
         assert await repo.get("amazon_tag") == "nova-tag"
 
+        # Non-secret keyword list persists as comma string
+        res_kw = await client.put(
+            "/painel/section/filtros",
+            headers={"Authorization": auth_header},
+            json={"values": {"blocked_keywords": "esgotado,novo"}},
+        )
+        assert res_kw.status_code == 200
+        assert await repo.get("blocked_keywords") == "esgotado,novo"
+
+        # Empty non-secret clears the override (back to default/env)
+        res_clear = await client.put(
+            "/painel/section/filtros",
+            headers={"Authorization": auth_header},
+            json={"values": {"blocked_keywords": ""}},
+        )
+        assert res_clear.status_code == 200
+        cleared = res_clear.json()["settings"]["blocked_keywords"]
+        assert cleared["configured_in_db"] is False
+        assert cleared["value"] == Settings().BLOCKED_KEYWORDS
+        assert await repo.get("blocked_keywords") is None
+
+        # Secret with empty value keeps current (regression from earlier put)
+        res_secret_keep = await client.put(
+            "/painel/section/afiliados",
+            headers={"Authorization": auth_header},
+            json={"values": {"amazon_tag": ""}},
+        )
+        assert res_secret_keep.status_code == 200
+        assert await repo.get("amazon_tag") == "nova-tag"
+
         # Values now reflect override
         res_values = await client.get("/painel/values", headers={"Authorization": auth_header})
         assert res_values.json()["settings"]["amazon_tag"]["value"] == "nova-tag"

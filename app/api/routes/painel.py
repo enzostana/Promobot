@@ -103,11 +103,16 @@ async def update_section(section: str, payload: SectionUpdate, db=Depends(get_db
     repo = SettingRepository(session)
     for key_b, raw_value in submitted.items():
         value = str(raw_value).strip()
-        if value == "":
-            continue  # blank = keep current value
-        await repo.upsert(key_b, value)
         if key_b in SECRET_KEYS:
+            if value == "":
+                continue  # blank secret = keep current
+            await repo.upsert(key_b, value)
             write_secret_file(key_b, value)
+        elif value == "":
+            # Campo não-secreto vazio = limpar a lista (volta ao default/env).
+            await repo.delete(key_b)
+        else:
+            await repo.upsert(key_b, value)
     await session.commit()
 
     runtime_overrides._cache = None  # invalidate worker-side cache is separate process; invalidate API view
@@ -251,6 +256,11 @@ PAINEL_HTML = r'''<!DOCTYPE html>
         .msg-ok { display: block; background: var(--msg-ok-bg); color: var(--msg-ok-text); border: 1px solid var(--msg-ok-border); }
         .msg-err { display: block; background: var(--msg-err-bg); color: var(--msg-err-text); border: 1px solid var(--msg-err-border); }
         .hint { font-size: 0.75rem; color: var(--text-faint); margin-top: 4px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 6px 3px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border-strong); color: var(--text-primary); }
+        .chip button { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; border: 0; background: var(--border-strong); color: var(--text-secondary); font-size: 0.7rem; cursor: pointer; line-height: 1; padding: 0; }
+        .chip button:hover { background: var(--red); color: #fff; }
+        input.chip-input { border-style: dashed; }
         .pill-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background: var(--surface-2); border: 1.5px solid var(--border-strong); color: var(--text-secondary); }
         .grid2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
         @media (min-width: 900px) { .grid2 { grid-template-columns: 1fr 1fr; } }
@@ -316,8 +326,11 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                 <div class="card-header"><h2 class="font-bold" style="color:var(--text-primary);">Filtros</h2></div>
                 <div class="card-body">
                     <div class="mb-4">
-                        <label>Keywords bloqueadas (vírgula)</label>
-                        <input type="text" id="blocked_keywords" placeholder="esgotado, sorteio…">
+                        <label>Keywords bloqueadas (exclusões da busca)</label>
+                        <div class="chips" id="chips-blocked_keywords"></div>
+                        <input type="text" class="chip-input" id="input-blocked_keywords" placeholder="digite e pressione Enter para adicionar" autocomplete="off">
+                        <input type="hidden" id="blocked_keywords">
+                        <p class="hint">Ex.: fake, sorteio, esgotado, golpe. Campo vazio = volta às palavras anti-scam padrão.</p>
                     </div>
                     <div class="mb-4">
                         <label>Keywords obrigatórias (vírgula)</label>
@@ -450,8 +463,11 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                         <p class="hint">Obtido em <b>mel/connect</b> ou configurando manualmente o fluxo de autorização. Mascarado; vazio = manter atual.</p>
                     </div>
                     <div class="mb-4">
-                        <label>Keywords (vírgula)</label>
-                        <input type="text" id="mel_finder_keywords" placeholder="fone bluetooth, smart tv…">
+                        <label>Keywords da busca (Mercado Livre)</label>
+                        <div class="chips" id="chips-mel_finder_keywords"></div>
+                        <input type="text" class="chip-input" id="input-mel_finder_keywords" placeholder="digite e pressione Enter para adicionar" autocomplete="off">
+                        <input type="hidden" id="mel_finder_keywords">
+                        <p class="hint">Termos procurados na página de ofertas. Vazio = volta às keywords padrão do ambiente.</p>
                     </div>
                     <div class="grid grid-cols-3 gap-3 mb-4">
                         <div><label>Desc. mín. (%)</label><input type="text" id="mel_finder_min_discount"></div>
@@ -497,6 +513,54 @@ PAINEL_HTML = r'''<!DOCTYPE html>
         })();
 
         const SECRET_KEYS = ["amazon_tag","mercadolivre_tag","shopee_tag","shopee_app_id","shopee_api_app_id","shopee_api_secret","mel_api_client_id","mel_api_client_secret","mel_refresh_token"];
+        const TAG_KEYS = ["blocked_keywords","mel_finder_keywords"];
+        const TAG_DATA = {};
+        function splitTags(value) {
+            return String(value || "").split(",").map(s => s.trim()).filter(Boolean);
+        }
+        function syncHidden(key) {
+            document.getElementById(key).value = (TAG_DATA[key] || []).join(",");
+        }
+        function renderChips(key) {
+            const box = document.getElementById("chips-" + key);
+            if (!box) return;
+            TAG_DATA[key] = splitTags(document.getElementById(key).value);
+            box.innerHTML = "";
+            TAG_DATA[key].forEach((t, i) => {
+                const chip = document.createElement("span");
+                chip.className = "chip";
+                chip.textContent = t;
+                const x = document.createElement("button");
+                x.type = "button";
+                x.textContent = "✕";
+                x.title = "Remover " + t;
+                x.onclick = () => { TAG_DATA[key].splice(i, 1); syncHidden(key); renderChips(key); };
+                chip.appendChild(x);
+                box.appendChild(chip);
+            });
+        }
+        function addChip(key) {
+            const input = document.getElementById("input-" + key);
+            const tags = splitTags(input.value);
+            input.value = "";
+            if (!tags.length) return;
+            const cur = TAG_DATA[key] || [];
+            tags.forEach(t => {
+                t = t.toLowerCase();
+                if (!cur.includes(t)) cur.push(t);
+            });
+            TAG_DATA[key] = cur;
+            syncHidden(key);
+            renderChips(key);
+        }
+        function bindChipInput(key) {
+            const input = document.getElementById("input-" + key);
+            if (!input) return;
+            input.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addChip(key); }
+            });
+            input.addEventListener("blur", () => { if (input.value.trim()) addChip(key); });
+        }
         function showMsg(id, ok, text) {
             const el = document.getElementById(id);
             el.className = "msg " + (ok ? "msg-ok" : "msg-err");
@@ -521,6 +585,7 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                         el.value = meta.value || "";
                     }
                 }
+                TAG_KEYS.forEach(key => { bindChipInput(key); renderChips(key); });
                 const pill = document.getElementById('bot-pill');
                 if (data.paused) { pill.innerHTML = '<span class="dot" style="background:var(--red);"></span>pausado'; }
                 else { pill.innerHTML = '<span class="dot" style="background:var(--green);"></span>ativo — ' + (data.worker.status || '?'); }
