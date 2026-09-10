@@ -46,10 +46,12 @@ class MercadoLivreProvider(AffiliateProvider):
     def __init__(self,
                  tag: Optional[str] = None,
                  word: Optional[str] = None,
+                 route: str = "product",
                  resolver: Optional[Callable[[str], str]] = None,
                  page_fetcher: Optional[Callable[[str], str]] = None):
         self.tag = tag
         self.word = word
+        self.route = route
         self._resolver = resolver or self._resolve_shortlink
         self._page_fetcher = page_fetcher or self._fetch_page
 
@@ -163,9 +165,30 @@ class MercadoLivreProvider(AffiliateProvider):
         new_query = urllib.parse.urlencode(params, doseq=True)
         return urllib.parse.urlunparse(parsed._replace(query=new_query))
 
+    def _build_social_url(self) -> str:
+        """Official-shape link routing through the affiliate's social profile.
+
+        Mirrors the format MELI's own Gerador de Links emits (minus the signed
+        per-link ref token, which cannot be forged): the follower lands on the
+        affiliated profile page and product clicks there carry attribution.
+        """
+        parsed = urllib.parse.urlparse("https://www.mercadolivre.com.br/social/")
+        params = {"forceInApp": "true"}
+        if self.tag:
+            params["matt_tool"] = self.tag
+        if self.word:
+            params["matt_word"] = self.word
+        new_url = f"{parsed.scheme}://{parsed.netloc}/social/{self.word}"
+        return urllib.parse.urlunparse(parsed._replace(path=f"/social/{self.word}", query=urllib.parse.urlencode(params)))
+
     def convert(self, url: str) -> str:
         if not url:
             return ""
+
+        if self.route == "profile":
+            if self.word:
+                return self._build_social_url()
+            logger.warning("[MELI] MERCADOLIVRE_ROUTE=profile sem MERCADOLIVRE_WORD; usando rota de produto.")
 
         if self._is_shortlink(url):
             resolved = self._resolver(url)

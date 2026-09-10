@@ -84,6 +84,40 @@ def test_mercadolivre_provider_injects_user_matt_word():
     assert "utm_source" not in converted
 
 
+def test_mercadolivre_provider_route_profile():
+    provider = MercadoLivreProvider(tag="12520971", word="rufinobr", route="profile")
+
+    converted = provider.convert("https://www.mercadolivre.com.br/some-product/p/MLB54075534")
+
+    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+    assert "matt_tool=12520971" in converted
+    assert "matt_word=rufinobr" in converted
+    assert "forceInApp=true" in converted
+
+
+def test_mercadolivre_provider_route_profile_shortlink():
+    provider = MercadoLivreProvider(tag="12520971", word="rufinobr", route="profile")
+    provider._resolver = lambda url: "https://www.mercadolivre.com.br/social/thautec?ref=SIGNED"
+
+    converted = provider.convert("https://meli.la/25aHuyj")
+
+    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+    assert "matt_tool=12520971" in converted
+    assert "matt_word=rufinobr" in converted
+    assert "ref=" not in converted
+
+
+def test_mercadolivre_provider_route_profile_without_word_falls_back():
+    provider = MercadoLivreProvider(tag="12520971", route="profile")
+    provider._resolver = lambda url: "https://www.mercadolivre.com.br/social/thautec"
+
+    converted = provider.convert("https://meli.la/25aHuyj")
+
+    # Falls back to product routing (no matt_word set)
+    assert "social/rufinobr" not in converted
+    assert "matt_tool=12520971" in converted
+
+
 def test_mercadolivre_provider_shortlink_resolved_with_user_tag():
     provider = MercadoLivreProvider(tag="12520971")
     resolved_url = "https://www.mercadolivre.com.br/social/guru?ref=ABC123"

@@ -20,7 +20,11 @@ class AffiliateRegistry:
 
     def _init_default_providers(self) -> None:
         self.register(AmazonProvider(tag=self.settings.AMAZON_TAG))
-        self.register(MercadoLivreProvider(tag=self.settings.MERCADOLIVRE_TAG, word=self.settings.MERCADOLIVRE_WORD))
+        self.register(MercadoLivreProvider(
+            tag=self.settings.MERCADOLIVRE_TAG,
+            word=self.settings.MERCADOLIVRE_WORD,
+            route=self.settings.MERCADOLIVRE_ROUTE,
+        ))
         self.register(ShopeeProvider(tag=self.settings.SHOPEE_TAG, app_id=self.settings.SHOPEE_APP_ID))
 
     def register(self, provider: AffiliateProvider) -> None:

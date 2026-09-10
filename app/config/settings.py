@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     AMAZON_TAG: Optional[str] = None
     MERCADOLIVRE_TAG: Optional[str] = None
     MERCADOLIVRE_WORD: Optional[str] = None
+    MERCADOLIVRE_ROUTE: str = "product"
     SHOPEE_APP_ID: Optional[str] = None
     SHOPEE_TAG: Optional[str] = None
 
