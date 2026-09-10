@@ -8,6 +8,13 @@ from typing import Callable, Optional, Tuple
 import httpx
 
 from app.affiliates.base import AffiliateProvider
+from app.affiliates.meli_mint import (
+    MeliLinkMinter,
+    MeliMintError,
+    MeliRateLimited,
+    MeliSessionExpired,
+    MeliUrlNotAllowed,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +22,17 @@ _BROWSER_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
     "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8",
 }
+
+
+def _read_session_file(path: Optional[str]) -> Optional[str]:
+    if not path:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            value = fh.read().strip()
+        return value or None
+    except OSError:
+        return None
 
 
 class MercadoLivreProvider(AffiliateProvider):
@@ -48,12 +66,18 @@ class MercadoLivreProvider(AffiliateProvider):
                  word: Optional[str] = None,
                  route: str = "product",
                  resolver: Optional[Callable[[str], str]] = None,
-                 page_fetcher: Optional[Callable[[str], str]] = None):
+                 page_fetcher: Optional[Callable[[str], str]] = None,
+                 mint: bool = False,
+                 session_file: Optional[str] = None,
+                 session: Optional[str] = None):
         self.tag = tag
         self.word = word
         self.route = route
+        self.mint_enabled = mint
         self._resolver = resolver or self._resolve_shortlink
         self._page_fetcher = page_fetcher or self._fetch_page
+        self._mint_session = session or _read_session_file(session_file)
+        self._minter = MeliLinkMinter(ssid=self._mint_session, word=word) if mint else None
 
     @property
     def store_name(self) -> str:
@@ -181,9 +205,42 @@ class MercadoLivreProvider(AffiliateProvider):
         new_url = f"{parsed.scheme}://{parsed.netloc}/social/{self.word}"
         return urllib.parse.urlunparse(parsed._replace(path=f"/social/{self.word}", query=urllib.parse.urlencode(params)))
 
+    def _try_mint(self, url: str) -> Optional[str]:
+        """Attempts official link minting; returns the /sec/ URL or None."""
+        if not self._minter or not self._minter.available:
+            return None
+
+        canonical = self._minter.canonicalize(url)
+        if not canonical:
+            return None
+
+        try:
+            minted = self._minter.create_links([canonical])
+        except MeliSessionExpired as e:
+            logger.warning(f"[MELI] {e} (link oficial indisponível; usando fallback).")
+            return None
+        except MeliRateLimited as e:
+            logger.warning(f"[MELI] {e} (usando fallback).")
+            return None
+        except MeliUrlNotAllowed:
+            logger.warning("[MELI] Produto inelegível para o programa de afiliados; usando fallback.")
+            return None
+        except MeliMintError as e:
+            logger.warning(f"[MELI] {e} (usando fallback).")
+            return None
+
+        short = minted.get(canonical)
+        if short:
+            logger.info("[MELI] Link oficial mintado para o produto.")
+        return short
+
     def convert(self, url: str) -> str:
         if not url:
             return ""
+
+        official = self._try_mint(url)
+        if official:
+            return official
 
         if self.route == "profile":
             if self.word:

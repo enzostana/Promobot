@@ -1,6 +1,14 @@
+import httpx
 import pytest
 from app.affiliates.amazon import AmazonProvider
 from app.affiliates.mercadolivre import MercadoLivreProvider
+from app.affiliates.meli_mint import (
+    MeliLinkMinter,
+    MeliMintError,
+    MeliRateLimited,
+    MeliSessionExpired,
+    MeliUrlNotAllowed,
+)
 from app.affiliates.shopee import ShopeeProvider
 from app.affiliates.registry import AffiliateRegistry
 from app.config.settings import Settings
@@ -256,3 +264,151 @@ def test_affiliate_invalid_url(test_settings):
     assert converted == ""
     assert store == "unknown"
     assert pid is None
+
+
+# ---------------------------------------------------------------------------
+# Mercado Livre: mintagem oficial (mercadolivre.com/sec) via sessão ssid
+# ---------------------------------------------------------------------------
+
+def _mint_transport(create_links_handler):
+    """Builds an httpx transport that bootstraps _csrf then proxies createLink."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/afiliados/linkbuilder":
+            return httpx.Response(
+                200,
+                headers=httpx.Headers([
+                    ("set-cookie", "_csrf=csrf-token-abc; Path=/; HttpOnly"),
+                    ("set-cookie", "_d2id=d2id-1; Path=/; HttpOnly"),
+                ]),
+            )
+        if path == "/affiliate-program/api/v2/stripe/user/tags":
+            return httpx.Response(200, json=[
+                {"name": "rufinobr", "in_use": True},
+            ])
+        if path == "/affiliate-program/api/v2/affiliates/createLink":
+            return create_links_handler(request)
+        return httpx.Response(404, json={"message": "not found"})
+
+    return httpx.MockTransport(handler)
+
+
+def _ok_create_handler(request):
+    origin = request.content.decode()
+    return httpx.Response(200, json={
+        "total_success": 1,
+        "total_error": 0,
+        "urls": [{
+            "origin_url": "https://www.mercadolivre.com.br/produto/p/MLB54075534",
+            "short_url": "https://mercadolivre.com/sec/1AbCdEf",
+            "long_url": "https://www.mercadolivre.com.br/produto/p/MLB54075534",
+        }],
+    })
+
+
+def test_meli_minter_mints_official_short_link():
+    minter = MeliLinkMinter(ssid="ssid-secreto", word="rufinobr",
+                            transport=_mint_transport(_ok_create_handler))
+
+    result = minter.create_links(["https://www.mercadolivre.com.br/produto/p/MLB54075534?matt_tool=x"])
+
+    assert result == {
+        "https://www.mercadolivre.com.br/produto/p/MLB54075534":
+            "https://mercadolivre.com/sec/1AbCdEf",
+    }
+    assert minter._temp_cookies.get("_csrf") == "csrf-token-abc"
+
+
+def test_meli_provider_convert_uses_official_link():
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=True, session="ssid-secreto",
+    )
+    provider._minter._transport = _mint_transport(_ok_create_handler)
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534?matt_tool=outra")
+
+    assert converted == "https://mercadolivre.com/sec/1AbCdEf"
+
+
+def test_meli_provider_mint_disabled_keeps_profile_route():
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=False, session="ssid-secreto",
+    )
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+
+    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+    assert "matt_tool=12520971" in converted
+
+
+def test_meli_provider_falls_back_on_111():
+    def handler(request):
+        return httpx.Response(200, json={
+            "total_success": 0,
+            "total_error": 1,
+            "urls": [{
+                "origin_url": "https://www.mercadolivre.com.br/produto/p/MLB54075534",
+                "error_code": 111,
+                "message": "URL not allowed in affiliates program",
+            }],
+        })
+
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=True, session="ssid-secreto",
+    )
+    provider._minter._transport = _mint_transport(handler)
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+
+    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+
+
+def test_meli_provider_falls_back_on_403():
+    def handler(request):
+        return httpx.Response(403, json={"message": "forbidden"})
+
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=True, session="ssid-secreto",
+    )
+    provider._minter._transport = _mint_transport(handler)
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+
+    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+
+
+def test_meli_provider_falls_back_on_429():
+    def handler(request):
+        return httpx.Response(429, json={"message": "too many"})
+
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=True, session="ssid-secreto",
+    )
+    provider._minter._transport = _mint_transport(handler)
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+
+    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+    assert "sec/" not in converted
+
+
+def test_meli_provider_without_session_falls_back():
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=True, session=None,
+    )
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+
+    assert converted.startswith("https://www.mercadolivre.com.br/social/rufinobr?")
+
+
+def test_meli_provider_cannotize_rejects_non_product_urls():
+    provider = MercadoLivreProvider(tag="12520971", mint=True, session="ssid")
+    assert provider._minter.canonicalize("https://www.mercadolivre.com.br/ofertas") == ""
+    assert provider._minter.canonicalize("") == ""

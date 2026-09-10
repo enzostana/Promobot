@@ -24,6 +24,8 @@ class AffiliateRegistry:
             tag=self.settings.MERCADOLIVRE_TAG,
             word=self.settings.MERCADOLIVRE_WORD,
             route=self.settings.MERCADOLIVRE_ROUTE,
+            mint=self.settings.MERCADOLIVRE_MINT,
+            session_file=self.settings.MERCADOLIVRE_SESSION_FILE,
         ))
         self.register(ShopeeProvider(tag=self.settings.SHOPEE_TAG, app_id=self.settings.SHOPEE_APP_ID))
 
