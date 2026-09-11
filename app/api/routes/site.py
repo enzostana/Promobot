@@ -249,7 +249,7 @@ nav.main a.active {{ color:var(--accent); background:var(--chip); }}
 .section-head {{ display:flex; align-items:baseline; justify-content:space-between; margin:18px 0 10px; }}
 .section-head h2 {{ font-size:1.1rem; font-weight:800; }}
 .section-head .more {{ color:var(--muted); font-weight:600; font-size:.85rem; }}
-.grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; }}
+.grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:9px; }}
 .promo-card {{ background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:var(--shadow); display:flex; flex-direction:column; transition:transform .15s ease,box-shadow .15s ease; }}
 .promo-card:hover {{ transform:translateY(-2px); box-shadow:0 4px 12px rgba(16,24,40,.1); }}
 .card-top {{ position:relative; }}
@@ -258,21 +258,21 @@ nav.main a.active {{ color:var(--accent); background:var(--chip); }}
 .card-media img {{ width:100%; height:100%; object-fit:cover; display:block; }}
 .card-media.broken {{ display:none; }}
 .card-media.no-img {{ background:linear-gradient(135deg,var(--accent),var(--accent-2)); display:flex; align-items:center; justify-content:center; }}
-.img-fallback {{ font-size:1.8rem; font-weight:800; color:#fff; }}
-.badge.off {{ position:absolute; top:8px; right:8px; background:var(--accent); color:#fff; font-weight:800; font-size:.72rem; padding:3px 8px; border-radius:999px; }}
-.card-body {{ padding:10px 12px 12px; display:flex; flex-direction:column; gap:6px; flex:1; }}
-.card-title {{ font-size:.85rem; font-weight:600; line-height:1.35; min-height:2.3em; }}
+.img-fallback {{ font-size:1.4rem; font-weight:800; color:#fff; }}
+.badge.off {{ position:absolute; top:6px; right:6px; background:var(--accent); color:#fff; font-weight:800; font-size:.66rem; padding:2px 6px; border-radius:999px; }}
+.card-body {{ padding:8px 9px 9px; display:flex; flex-direction:column; gap:5px; flex:1; }}
+.card-title {{ font-size:.78rem; font-weight:600; line-height:1.3; min-height:2.1em; }}
 .card-title a {{ color:var(--text); }}
 .card-title a:hover {{ color:var(--accent); text-decoration:none; }}
 .price {{ margin-top:auto; }}
-.price .de {{ color:var(--muted); text-decoration:line-through; font-size:.78rem; display:block; }}
-.price strong {{ font-size:1rem; font-weight:800; color:var(--text); }}
+.price .de {{ color:var(--muted); text-decoration:line-through; font-size:.7rem; display:block; }}
+.price strong {{ font-size:.92rem; font-weight:800; color:var(--text); }}
 .meta {{ display:flex; flex-wrap:wrap; gap:5px; align-items:center; }}
-.pill {{ font-size:.68rem; font-weight:700; padding:2px 7px; border-radius:999px; background:var(--chip); color:var(--text-2); }}
+.pill {{ font-size:.66rem; font-weight:700; padding:2px 6px; border-radius:999px; background:var(--chip); color:var(--text-2); }}
 .pill.store {{ color:var(--green); background:#e8f5ee; }}
 .pill.cat {{ color:var(--accent); background:#fff0ea; }}
 .when {{ margin-left:auto; color:var(--muted); font-size:.7rem; }}
-.btn-ver {{ text-align:center; background:var(--accent); color:#fff; font-weight:700; padding:7px; border-radius:9px; font-size:.85rem; }}
+.btn-ver {{ text-align:center; background:var(--accent); color:#fff; font-weight:700; padding:5px; border-radius:8px; font-size:.78rem; }}
 .btn-ver:hover {{ background:#c22e0a; text-decoration:none; }}
 .empty {{ padding:40px; text-align:center; color:var(--muted); background:var(--surface); border:1px dashed var(--border); border-radius:16px; }}
 .pagination {{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:26px 0; }}
@@ -305,6 +305,8 @@ footer a {{ color:var(--text-2); }}
   .search input {{ width:120px; }}
   .detail {{ grid-template-columns:1fr; }}
   .hero h1 {{ font-size:1.5rem; }}
+  .grid {{ grid-template-columns:repeat(2,1fr); gap:8px; }}
+  .when {{ display:none; }}
 }}
 </style>
 </head>
