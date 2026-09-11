@@ -141,3 +141,37 @@ async def test_painel_routes(async_db_session, monkeypatch):
         assert res_test.json()["ok"] is True
         assert len(fake_queue.enqueued) == 1
         assert fake_queue.enqueued[0].source == "painel"
+
+
+class FakeStatusRedis:
+    def __init__(self, last_raw):
+        self._last_raw = last_raw
+
+    async def get(self, key):
+        return self._last_raw
+
+    async def llen(self, key):
+        return 2
+
+    async def aclose(self):
+        pass
+
+
+@pytest.mark.asyncio
+async def test_worker_status_interprets_last_processed_as_epoch(monkeypatch):
+    """The writer stores Unix epoch and _get_worker_status computes seconds ago.
+    A tiny monotonic value would make the painel show 'years ago' (regression fix)."""
+    import time
+
+    import app.api.routes.painel as painel
+
+    last_processed = str(int(time.time()) - 3)
+    monkeypatch.setattr(
+        painel.redis, "from_url", lambda url, **kw: FakeStatusRedis(last_processed)
+    )
+
+    status = await painel._get_worker_status()
+    assert status["status"] == "healthy"
+    assert status["last_processed_seconds_ago"] is not None
+    assert 0 <= status["last_processed_seconds_ago"] <= 30
+    assert status["queue_length"] == 2

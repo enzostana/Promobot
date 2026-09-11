@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import signal
+import time
 from typing import Optional
 from app.config.settings import Settings
 from app.core.models import RawMessage
@@ -18,6 +19,15 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger("worker")
+
+
+def _last_processed_ts() -> str:
+    """Wall-clock Unix epoch (seconds) as string.
+
+    Health checks and the painel read this via ``datetime.fromtimestamp``,
+    so the stored value MUST be wall-clock epoch — never a monotonic clock.
+    """
+    return str(int(time.time()))
 
 
 class Worker:
@@ -124,7 +134,7 @@ class Worker:
                         try:
                             await redis_client.set(
                                 "promobot:last_processed:worker",
-                                str(int(asyncio.get_event_loop().time()))
+                                _last_processed_ts()
                             )
                         except Exception:
                             pass

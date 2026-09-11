@@ -7,6 +7,21 @@ from app.core.models import RawMessage
 
 
 @pytest.mark.asyncio
+async def test_last_processed_ts_is_wall_clock_epoch():
+    """Health checks/painel read this via datetime.fromtimestamp (Unix epoch),
+    NOT a monotonic clock (which would make the painel show 'years ago')."""
+    import time
+    from datetime import datetime, timezone
+
+    from app.workers.tasks import _last_processed_ts
+
+    value = float(_last_processed_ts())
+    assert value > 1_000_000_000  # rejects monotonic (loop.time() ≈ 0..N)
+    assert abs(value - time.time()) < 5
+    assert datetime.fromtimestamp(value, tz=timezone.utc).year >= 2026
+
+
+@pytest.mark.asyncio
 async def test_worker_continues_after_processor_error():
     """A processor that raises must not crash the worker loop."""
     processed = []
