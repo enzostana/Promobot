@@ -642,7 +642,7 @@ function bindRefresh(url) {
       const first = grid.querySelector('.promo-card .card-title a');
       const curId = first ? Number(first.getAttribute('href').split('/').pop()) : null;
       const hasNew = d.items.some(it => it.id > (curId||0));
-      const fresh = d.items.map(cardHTML).join('');
+      const fresh = '<div class="grid">' + d.items.map(cardHTML).join('') + '</div>';
       if (fresh !== grid.innerHTML) {
         grid.innerHTML = fresh;
         const el = document.getElementById('updated-at');
