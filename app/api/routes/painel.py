@@ -143,7 +143,7 @@ async def send_test_promotion(db=Depends(get_db)):
         source_chat_id="@painel",
         source_chat_title="Teste do Painel",
         text=(
-            "🔥 Promoção de teste do painel por R$ 19,90! "
+            "🔥 Teste do painel — Notebook Gamer por R$ 19,90! "
             "https://www.mercadolivre.com.br/p/MLB999000123"
         ),
         received_at=datetime.now(timezone.utc),
@@ -308,6 +308,11 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                         <p class="hint">Parâmetro <code>matt_tool</code> do link de afiliado.</p>
                     </div>
                     <div class="mb-4">
+                        <label>Mercado Livre — matt_word</label>
+                        <input type="text" id="mercadolivre_matt_word" placeholder=""" autocomplete="off">
+                        <p class="hint">Parâmetro <code>matt_word</code>. Vazio = usa a word do <code>/social</code>.</p>
+                    </div>
+                    <div class="mb-4">
                         <label>Shopee — tag (aff_trace_key)</label>
                         <input type="text" id="shopee_tag" placeholder="••••" autocomplete="off">
                     </div>
@@ -316,7 +321,7 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                         <input type="text" id="shopee_app_id" placeholder="••••" autocomplete="off">
                         <p class="hint">Usado junto com o <code>aff_trace_key</code>.</p>
                     </div>
-                    <button class="btn btn-primary" onclick="saveSection('afiliados', ['amazon_tag','mercadolivre_tag','shopee_tag','shopee_app_id'], 'msg-afiliados')">Salvar Afiliados</button>
+                    <button class="btn btn-primary" onclick="saveSection('afiliados', ['amazon_tag','mercadolivre_tag','mercadolivre_matt_word','shopee_tag','shopee_app_id'], 'msg-afiliados')">Salvar Afiliados</button>
                     <div id="msg-afiliados" class="msg"></div>
                 </div>
             </div>

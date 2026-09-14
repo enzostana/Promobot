@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: promobot_postgres
+    container_name: ${INSTANCE_PREFIX:-promobot}_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-promobot}
@@ -37,7 +37,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: promobot_redis
+    container_name: ${INSTANCE_PREFIX:-promobot}_redis
     restart: unless-stopped
     volumes:
       - redis_data:/data
@@ -69,18 +69,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: promobot_migrator
+    image: ${INSTANCE_PREFIX:-promobot}-migrator
+    container_name: ${INSTANCE_PREFIX:-promobot}_migrator
     command: alembic upgrade head
     env_file:
-      - .env
+      - ${ENV_FILE:-.env}
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD_ENC}@postgres:5432/${POSTGRES_DB:-promobot}
       - REDIS_URL=redis://redis:6379/0
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
     networks:
       - promonet
     secrets:
@@ -91,26 +90,25 @@ services:
       build:
         context: .
         dockerfile: Dockerfile
-      container_name: promobot_api
+      image: ${INSTANCE_PREFIX:-promobot}-api
+      container_name: ${INSTANCE_PREFIX:-promobot}_api
       restart: unless-stopped
       command: >
         sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000"
       env_file:
-        - .env
+        - ${ENV_FILE:-.env}
       environment:
         - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD_ENC}@postgres:5432/${POSTGRES_DB:-promobot}
         - REDIS_URL=redis://redis:6379/0
         - SECRET_FILES_DIR=/app/secret_files
+        - MERCADOLIVRE_SESSION_FILE=/run/secrets/mel_session
       volumes:
-        - /home/cinadmin/promobot/secrets:/app/secret_files
+        - ${SECRETS_DIR_HOST:-/home/cinadmin/promobot/secrets}:/app/secret_files
         - media_cache:/app/media_cache
       depends_on:
-        migrator:
-          condition: service_completed_successfully
-        postgres:
-          condition: service_healthy
-        redis:
-          condition: service_healthy
+        - migrator
+        - postgres
+        - redis
       networks:
         - promonet
       secrets:
@@ -148,20 +146,20 @@ services:
       build:
         context: .
         dockerfile: Dockerfile
-      container_name: promobot_worker
+      image: ${INSTANCE_PREFIX:-promobot}-worker
+      container_name: ${INSTANCE_PREFIX:-promobot}_worker
       restart: unless-stopped
       command: python -m app.workers.tasks
       env_file:
-        - .env
+        - ${ENV_FILE:-.env}
       environment:
         - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD_ENC}@postgres:5432/${POSTGRES_DB:-promobot}
         - REDIS_URL=redis://redis:6379/0
         - WORKER_MAX_ATTEMPTS=${WORKER_MAX_ATTEMPTS:-3}
+        - MERCADOLIVRE_SESSION_FILE=/run/secrets/mel_session
       depends_on:
-        postgres:
-          condition: service_healthy
-        redis:
-          condition: service_healthy
+        - postgres
+        - redis
       volumes:
         - media_cache:/app/media_cache
       networks:
@@ -174,6 +172,7 @@ services:
         - mercadolivre_tag
         - shopee_app_id
         - shopee_tag
+        - mel_session
       deploy:
         placement:
           constraints:
@@ -201,17 +200,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: promobot_telegram_listener
+    image: ${INSTANCE_PREFIX:-promobot}-telegram_listener
+    container_name: ${INSTANCE_PREFIX:-promobot}_telegram_listener
     restart: unless-stopped
     command: python -m app.adapters.telegram
     env_file:
-      - .env
+      - ${ENV_FILE:-.env}
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - TELEGRAM_SOURCE_CHATS=-1001727085912,-1002053078217,-1001711010679
+      - TELEGRAM_SOURCE_CHATS=${TELEGRAM_SOURCE_CHATS:-}
     depends_on:
-      redis:
-        condition: service_healthy
+      - redis
     volumes:
       - media_cache:/app/media_cache
       - session_data:/app/sessions
@@ -244,19 +243,52 @@ services:
       retries: 3
       start_period: 15s
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: promobot_cloudflared
+  evolution-api:
+    image: ${EVOLUTION_IMAGE:-evoapicloud/evolution-api:latest}
+    container_name: ${INSTANCE_PREFIX:-promobot}_evolution-api
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
-    env_file:
-      - .env
-    depends_on:
-      api:
-        condition: service_healthy
+    environment:
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-36a7072b2560021cf93a44e9a8628575465cde542bb0561e}
+      - CACHE_REDIS_ENABLED=false
+      - DATABASE_CONNECTION_URI=postgresql://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD_ENC}@postgres:5432/${EVOLUTION_DB:-evolution_db}?schema=evolution_api
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - SERVER_URL=http://evolution-api:8080
+      - WEBHOOK_GLOBAL_ENABLED=false
+    volumes:
+      - evolution_instances:/evolution/instances
     networks:
       - promonet
     deploy:
+      placement:
+        constraints:
+          - node.labels.zone == pessoal
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:latest}
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --protocol http2 --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    env_file:
+      - ${ENV_FILE:-.env}
+    depends_on:
+      - api
+    networks:
+      - promonet
+    deploy:
+      replicas: 3
       placement:
         constraints:
           - node.labels.zone == pessoal
@@ -275,28 +307,39 @@ services:
 
 networks:
   promonet:
-    driver: bridge
 
 volumes:
   postgres_data:
   redis_data:
   media_cache:
   session_data:
+  evolution_instances:
 
 secrets:
   postgres_password:
-    file: ./secrets/postgres_password.txt
+    external: true
+    name: "${INSTANCE_PREFIX}postgres_password"
   telegram_bot_token:
-    file: ./secrets/telegram_bot_token.txt
+    external: true
+    name: "${INSTANCE_PREFIX}telegram_bot_token"
   telegram_api_hash:
-    file: ./secrets/telegram_api_hash.txt
+    external: true
+    name: "${INSTANCE_PREFIX}telegram_api_hash"
   telegram_session_string:
-    file: ./secrets/telegram_session_string.txt
+    external: true
+    name: "${INSTANCE_PREFIX}telegram_session_string"
   amazon_tag:
-    file: ./secrets/amazon_tag.txt
+    external: true
+    name: "${INSTANCE_PREFIX}amazon_tag"
   mercadolivre_tag:
-    file: ./secrets/mercadolivre_tag.txt
+    external: true
+    name: "${INSTANCE_PREFIX}mercadolivre_tag"
   shopee_app_id:
-    file: ./secrets/shopee_app_id.txt
+    external: true
+    name: "${INSTANCE_PREFIX}shopee_app_id"
   shopee_tag:
-    file: ./secrets/shopee_tag.txt
+    external: true
+    name: "${INSTANCE_PREFIX}shopee_tag"
+  mel_session:
+    external: true
+    name: "mel_session"

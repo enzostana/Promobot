@@ -19,8 +19,10 @@ _BROWSER_HEADERS = {
 }
 
 # Short-link patterns accepted for normalization to a canonical product page.
+# The optional category/slug segment (e.g. /notebook-gamer-x/) may be absent:
+# bare /p/MLB<id> canonical pages (posted directly by the finder) must mint too.
 _CANONICAL_PRODUCT_RE = re.compile(
-    r'https://www\.mercadolivre\.com\.br/(?:[^?#]*/p/MLB\d+)(?:[/?#]|$)',
+    r'https://www\.mercadolivre\.com\.br(?:/[^?#]*)?/p/MLB\d+(?:[/?#]|$)',
     re.IGNORECASE,
 )
 # Item pages (produto.mercadolivre.com.br/MLB-####-<slug>-_JM) also carry an MLB id.

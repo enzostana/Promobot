@@ -1,3 +1,4 @@
+import json
 import httpx
 import pytest
 from app.affiliates.amazon import AmazonProvider
@@ -88,6 +89,19 @@ def test_mercadolivre_provider_injects_user_matt_word():
     assert "matt_tool=12520971" in converted
     assert "matt_word=rufinobr" in converted
     assert "matt_tool=73920577" not in converted
+    assert "matt_word=canal" not in converted
+    assert "utm_source" not in converted
+
+
+def test_mercadolivre_provider_separate_matt_word():
+    provider = MercadoLivreProvider(tag="12520971", word="rufinobr", matt_word="rufpromobot")
+    url = "https://www.mercadolivre.com.br/social/rufinobr?matt_word=canal&matt_tool=73920577&utm_source=telegram"
+
+    converted = provider.convert(url)
+
+    assert "matt_tool=12520971" in converted
+    assert "matt_word=rufpromobot" in converted
+    assert "matt_word=rufinobr" not in converted
     assert "matt_word=canal" not in converted
     assert "utm_source" not in converted
 
@@ -321,14 +335,14 @@ def _mint_transport(create_links_handler):
 
 
 def _ok_create_handler(request):
-    origin = request.content.decode()
+    origin = json.loads(request.content.decode())["urls"][0].split("?", 1)[0]
     return httpx.Response(200, json={
         "total_success": 1,
         "total_error": 0,
         "urls": [{
-            "origin_url": "https://www.mercadolivre.com.br/produto/p/MLB54075534",
+            "origin_url": origin,
             "short_url": "https://mercadolivre.com/sec/1AbCdEf",
-            "long_url": "https://www.mercadolivre.com.br/produto/p/MLB54075534",
+            "long_url": origin,
         }],
     })
 
@@ -344,6 +358,20 @@ def test_meli_minter_mints_official_short_link():
             "https://mercadolivre.com/sec/1AbCdEf",
     }
     assert minter._temp_cookies.get("_csrf") == "csrf-token-abc"
+
+
+def test_meli_mint_canonicalizes_bare_p_url():
+    """Bare /p/MLB... canonical pages (no category segment) must mint too."""
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=True, session="ssid-secreto",
+    )
+    provider._minter._transport = _mint_transport(_ok_create_handler)
+
+    result = provider._minter.create_links(["https://www.mercadolivre.com.br/p/MLB54075534?matt_tool=x"])
+
+    assert "https://www.mercadolivre.com.br/p/MLB54075534" in result
+    assert result["https://www.mercadolivre.com.br/p/MLB54075534"] == "https://mercadolivre.com/sec/1AbCdEf"
 
 
 def test_meli_provider_convert_uses_official_link():

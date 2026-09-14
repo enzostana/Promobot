@@ -1,4 +1,5 @@
 import html as _html
+import json
 import logging
 import re
 from typing import Dict, List, Optional
@@ -14,6 +15,7 @@ from app.core.parser import _fold_text
 logger = logging.getLogger(__name__)
 
 OFFERS_URL = "https://www.mercadolivre.com.br/ofertas"
+_ITEMS_MARK = '"items":['
 
 UA_HEADERS = {
     "User-Agent": (
@@ -71,16 +73,134 @@ def _item_id(url: str, title: str) -> str:
     return (slug or "").strip("-") or "-"
 
 
+def _find_balanced_json(html: str, start: int) -> Optional[str]:
+    """Retorna o trecho JSON balanceado de um array cujo '[' está em *start*."""
+    depth = 0
+    in_str = False
+    i = start
+    n = len(html)
+    while i < n:
+        c = html[i]
+        if in_str:
+            if c == "\\":
+                i += 2
+                continue
+            if c == '"':
+                in_str = False
+        elif c == '"':
+            in_str = True
+        elif c == "[":
+            depth += 1
+        elif c == "]":
+            depth -= 1
+            if depth == 0:
+                return html[start:i + 1]
+        i += 1
+    return None
+
+
+def _embedded_items(html: str) -> List[Dict]:
+    """Extrai do SSR da página o array 'items' (poly-cards) com mais itens que o parser regex."""
+    candidates = []
+    pos = 0
+    while True:
+        s = html.find(_ITEMS_MARK, pos)
+        if s == -1:
+            break
+        pos = s + 1
+        start = s + len(_ITEMS_MARK) - 1
+        chunk = _find_balanced_json(html, start)
+        if not chunk:
+            continue
+        try:
+            arr = json.loads(chunk)
+        except (ValueError, json.JSONDecodeError):
+            continue
+        if isinstance(arr, list) and arr and isinstance(arr[0], dict) and arr[0].get("card"):
+            candidates.append(arr)
+    if not candidates:
+        return []
+    return max(candidates, key=len)
+
+
+def _offer_from_json_item(item: Dict) -> Optional[Dict]:
+    card = item.get("card") or {}
+    meta = card.get("metadata") or {}
+    url = meta.get("url") or ""
+    if url and not url.startswith("http"):
+        url = "https://" + url
+    if not url:
+        return None
+
+    title = ""
+    for comp in card.get("components") or []:
+        comp_title = (comp.get("title") or {}).get("text")
+        if comp.get("type") == "title" and comp_title:
+            title = comp_title
+            break
+
+    price = 0.0
+    original = None
+    shop_name = None
+    for comp in card.get("components") or []:
+        if comp.get("type") == "price":
+            price_data = comp.get("price") or {}
+            try:
+                price = float((price_data.get("current_price") or {}).get("value") or 0.0)
+            except (TypeError, ValueError):
+                price = 0.0
+            for label in price_data.get("price_labels") or []:
+                for val in label.get("values") or []:
+                    if val.get("type") == "price" and val.get("key") == "previous_price":
+                        try:
+                            original = float((val.get("price") or {}).get("value") or 0.0) or None
+                        except (TypeError, ValueError):
+                            original = None
+                        break
+            break
+        if comp.get("type") == "seller":
+            for val in (comp.get("seller") or {}).get("values") or []:
+                if val.get("type") == "label" and val.get("label", {}).get("text"):
+                    shop_name = val["label"]["text"]
+                    break
+
+    if price <= 0:
+        return None
+
+    thumbnail = ""
+    pictures = (card.get("pictures") or {}).get("pictures") or []
+    if pictures and pictures[0].get("id"):
+        thumbnail = f"https://http2.mlstatic.com/D_{pictures[0]['id']}-O.jpg"
+
+    permalink = re.sub(r"[?#].*$", "", url)
+    discount = round((1 - price / original) * 100, 1) if original and price > 0 else 0.0
+    return {
+        "item_id": _item_id(permalink, title),
+        "product_name": title,
+        "permalink": permalink,
+        "thumbnail": thumbnail,
+        "price": price,
+        "original_price": original,
+        "discount_percentage": discount,
+        "sold_quantity": 0,
+        "condition": None,
+        "official_store": shop_name,
+        "shop_name": shop_name,
+    }
+
+
 class MercadoLivreFinder:
     """
     Caçador de ofertas do Mercado Livre via scraping da página pública de ofertas
     (https://www.mercadolivre.com.br/ofertas). Não usa a API: o endpoint
-    /sites/MLB/search foi descontinuado (HTTP 403), então a fonte passou a ser o
-    HTML server-rendered (blocos 'poly-card').
+    /sites/MLB/search foi descontinuado (HTTP 403) e a busca por keyword em
+    lista.mercadolivre.com.br é bloqueada por anti-bot (redireciona para verificação
+    de conta, mesmo via Chromium headless). A fonte é o HTML server-rendered.
 
-    Ofertas passam pelos filtros existentes (desconto mínimo, preço máximo) e pelo
-    filtro de temas via keywords (o título precisa conter uma das keywords). A página
-    é SSR, então um fetch simples com User-Agent de navegador é suficiente.
+    O pool de ofertas vem do bloco 'poly-card' (regex) + do array JSON embutido no SSR
+    ('items[]'), paginado (mel_finder_pages). As ofertas passam pelos filtros existentes
+    (desconto mínimo, preço máximo) e pelo filtro de temas via keywords (o título
+    precisa conter uma das keywords).
     """
 
     def __init__(
@@ -160,9 +280,16 @@ class MercadoLivreFinder:
     def _parse_offers(html: str) -> List[Dict]:
         blocks = _CARD_SPLIT_RE.split(html)[1:]
         offers = []
+        seen = set()
         for block in blocks:
             offer = MercadoLivreFinder._offer_from_block(block)
-            if offer:
+            if offer and offer["permalink"] not in seen:
+                seen.add(offer["permalink"])
+                offers.append(offer)
+        for item in _embedded_items(html):
+            offer = _offer_from_json_item(item)
+            if offer and offer["permalink"] not in seen:
+                seen.add(offer["permalink"])
                 offers.append(offer)
         return offers
 
@@ -216,16 +343,17 @@ class MercadoLivreFinder:
         pages = max(1, int(getattr(self.settings, "MEL_FINDER_PAGES", 1) or 1))
         seen = set()
         total = 0
-        for page in range(1, pages + 1):
-            url = OFFERS_URL if page == 1 else f"{OFFERS_URL}?page={page}"
+        max_enqueued = max(1, int(limit or 0)) if limit else 0
+
+        async def scan_url(url: str) -> None:
+            nonlocal total
             resp = await client.get(url, headers=UA_HEADERS)
             if resp.status_code >= 400:
                 logger.warning(
-                    f"[FINDER-MEL] página de ofertas http {resp.status_code}: {resp.text[:200]}"
+                    f"[FINDER-MEL] varredura http {resp.status_code}: {url[:120]}"
                 )
-                continue
-            offers = self._parse_offers(resp.text)
-            for offer in offers:
+                return
+            for offer in self._parse_offers(resp.text):
                 if not self._passes(offer):
                     continue
                 if offer["permalink"] in seen:
@@ -234,6 +362,21 @@ class MercadoLivreFinder:
                 raw = self.build_message(offer)
                 await queue.enqueue(raw)
                 total += 1
-                if limit and total >= limit:
-                    return total
+                if max_enqueued and total >= max_enqueued:
+                    return
+
+        # 1) página(s) geral(is) de ofertas
+        for page in range(1, pages + 1):
+            url = OFFERS_URL if page == 1 else f"{OFFERS_URL}?page={page}"
+            await scan_url(url)
+            if max_enqueued and total >= max_enqueued:
+                return total
+
+        # Busca livre por keyword (lista.mercadolivre.com.br, /sites/MLB/search e
+        # até navegador headless) é bloqueada pelo anti-bot do MEL. O caçador usa o
+        # filtro de keywords sobre o vertical de ofertas (páginas 1..pages).
+        logger.info(
+            f"[FINDER-MEL] varredura de {pages} página(s) de ofertas "
+            f"enfileirou {total} oferta(s) novas (filtro de {len(self.keywords)} keywords)."
+        )
         return total

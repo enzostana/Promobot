@@ -23,6 +23,7 @@ class AffiliateRegistry:
         self.register(MercadoLivreProvider(
             tag=self.settings.MERCADOLIVRE_TAG,
             word=self.settings.MERCADOLIVRE_WORD,
+            matt_word=self.settings.MERCADOLIVRE_MATT_WORD,
             route=self.settings.MERCADOLIVRE_ROUTE,
             mint=self.settings.MERCADOLIVRE_MINT,
             session_file=self.settings.MERCADOLIVRE_SESSION_FILE,

@@ -193,6 +193,30 @@ def test_infer_category_unknown(parser):
     assert parser.infer_category("Golden Retriever ração de cachorro", "Ração") is None
 
 
+def test_infer_category_perfume(parser):
+    assert parser.infer_category("Perfume Lattafa Asad 100ml Eau De Parfum Original", "Perfume") == "perfume"
+    assert parser.infer_category("Kaiak Masculino Natura Desodorante Colônia 100ml", "Kaiak") == "perfume"
+    assert parser.infer_category("Botica 214 Fiji Paradise Eau De Parfum", "Botica 214") == "perfume"
+    assert parser.infer_category("Kit 3 Body Splash Masculino 200ml", "Body Splash") == "perfume"
+    assert parser.infer_category("Perfume Armaf Club de Nuit Intense Edt 105ml", "Armaf") == "perfume"
+
+
+def test_infer_category_beleza(parser):
+    assert parser.infer_category("Protetor solar facial FPS 60", "Protetor Solar") == "beleza"
+    assert parser.infer_category("Kit maquiagem com batom e base", "Kit Maquiagem") == "beleza"
+    assert parser.infer_category("Sérum facial vitamina C 30ml", "Sérum") == "beleza"
+    assert parser.infer_category("Creme facial hidratante com ácido hialurônico", "Creme") == "beleza"
+    assert parser.infer_category("Rotina skincare completa com demaquilante", "Skincare") == "beleza"
+
+
+def test_infer_category_saude(parser):
+    assert parser.infer_category("Glicosímetro digital com 50 tiras", "Glicosímetro") == "saude"
+    assert parser.infer_category("Medidor de pressão arterial automático", "Medidor de Pressão") == "saude"
+    assert parser.infer_category("Oxímetro de dedo com display LCD", "Oxímetro") == "saude"
+    assert parser.infer_category("Termômetro infravermelho digital", "Termômetro") == "saude"
+    assert parser.infer_category("Vitamina D3 2000ui com 60 cápsulas", "Vitamina D") == "saude"
+
+
 def test_infer_category_tolerates_accents_and_plural(parser):
     assert parser.infer_category("Kit 2 Câmeras de Segurança WiFi", "Câmeras") == "tecnologia"
     assert parser.infer_category("Smart Watch Fit Pro 5ATM", "Smart watch") == "tecnologia"

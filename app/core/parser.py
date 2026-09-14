@@ -333,6 +333,20 @@ class PromotionParser:
                 "tenis", "tênis", "camiseta", "calca", "calça", "mochila", "relogio", "relógio",
                 "bermuda", "jaqueta", "vestido", "blusa", "roupa", "jeans",
             ],
+            "perfume": [
+                "perfume", "colonia", "colônia", "desodorante", "eau de parfum", "eau de toilette",
+                "body splash", "lattafa", "armaf", "boticario", "boticário", "botica",
+            ],
+            "beleza": [
+                "cosmetico", "cosmético", "maquiagem", "protetor solar", "sérum", "serum",
+                "skin care", "skincare", "dermocosmetico", "dermocosmético", "creme facial",
+                "hidratante facial", "batom", "base", "paleta de sombras", "demaquilante",
+            ],
+            "saude": [
+                "glicemia", "glicosimetro", "glicosímetro", "medidor de pressao", "medidor de pressão",
+                "termometro", "termômetro", "vitamina d", "vitaminas", "imunidade", "teste de glicose",
+                "aparelho de pressao", "oxímetro", "oximetro", "nebulizador",
+            ],
         }
         for cat, keywords in categories.items():
             for kw in keywords:

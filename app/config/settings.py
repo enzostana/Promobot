@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     AMAZON_TAG: Optional[str] = None
     MERCADOLIVRE_TAG: Optional[str] = None
     MERCADOLIVRE_WORD: Optional[str] = None
+    MERCADOLIVRE_MATT_WORD: Optional[str] = None
     MERCADOLIVRE_ROUTE: str = "product"
     MERCADOLIVRE_MINT: bool = False
     MERCADOLIVRE_SESSION_FILE: Optional[str] = None

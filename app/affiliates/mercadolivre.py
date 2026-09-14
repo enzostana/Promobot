@@ -64,6 +64,7 @@ class MercadoLivreProvider(AffiliateProvider):
     def __init__(self,
                  tag: Optional[str] = None,
                  word: Optional[str] = None,
+                 matt_word: Optional[str] = None,
                  route: str = "product",
                  resolver: Optional[Callable[[str], str]] = None,
                  page_fetcher: Optional[Callable[[str], str]] = None,
@@ -72,6 +73,7 @@ class MercadoLivreProvider(AffiliateProvider):
                  session: Optional[str] = None):
         self.tag = tag
         self.word = word
+        self.matt_word = matt_word or word
         self.route = route
         self.mint_enabled = mint
         self._resolver = resolver or self._resolve_shortlink
@@ -192,8 +194,8 @@ class MercadoLivreProvider(AffiliateProvider):
 
         if self.tag:
             params["matt_tool"] = [self.tag]
-        if self.word:
-            params["matt_word"] = [self.word]
+        if self.matt_word:
+            params["matt_word"] = [self.matt_word]
 
         new_query = urllib.parse.urlencode(params, doseq=True)
         return urllib.parse.urlunparse(parsed._replace(query=new_query, fragment=""))
@@ -209,8 +211,8 @@ class MercadoLivreProvider(AffiliateProvider):
         params = {"forceInApp": "true"}
         if self.tag:
             params["matt_tool"] = self.tag
-        if self.word:
-            params["matt_word"] = self.word
+        if self.matt_word:
+            params["matt_word"] = self.matt_word
         new_url = f"{parsed.scheme}://{parsed.netloc}/social/{self.word}"
         return urllib.parse.urlunparse(parsed._replace(path=f"/social/{self.word}", query=urllib.parse.urlencode(params)))
 
