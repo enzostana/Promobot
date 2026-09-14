@@ -121,9 +121,10 @@ def _card_html(item: dict, page_link: bool = True) -> str:
         name = esc(str(item["product_name"])[:117]) + "…"
 
     cat_pill = f'<span class="pill cat">{esc(_display_name(item.get("category")))}</span>' if item.get("category") else ""
+    kw_pill = f'<span class="pill kw" title="Encontrado via palavra-chave">{esc(item.get("matched_keyword"))}</span>' if item.get("matched_keyword") else ""
     meta = (
         f'<div class="meta"><span class="pill store">{esc(_display_name(item.get("store")))}</span>'
-        f'{cat_pill}'
+        f'{cat_pill}{kw_pill}'
         f'<span class="when">{esc(_fmt_date(item.get("published_at") or item.get("created_at")))}</span></div>'
     )
 
@@ -486,6 +487,7 @@ async def site_promotion_detail(
     rows = f"""
       <div><b><i>Loja</i></b> {esc(_display_name(promo.store))}</div>
       <div><b><i>Categoria</i></b> {esc(_display_name(promo.category)) or "—"}</div>
+      <div><b><i>Keyword</i></b> {esc(promo.matched_keyword) or "—"}</div>
       <div><b><i>Publicado</i></b> {esc(_fmt_date(promo.created_at))}</div>
     """
     desc = await _get_desc(promo)
@@ -591,6 +593,7 @@ async def api_site_promotions(
             "discount_percentage": float(m.discount_percentage) if m.discount_percentage is not None else None,
             "store": m.store,
             "category": m.category,
+            "matched_keyword": m.matched_keyword,
             "image": _site_image_url(m.image_url),
             "created_at": m.created_at.isoformat() if m.created_at else None,
             "published_at": m.published_at.isoformat() if m.published_at else None,
@@ -623,6 +626,7 @@ function cardHTML(i) {
   return '<div class="promo-card"><div class="card-top">' + off + '<div class="card-media-wrap">' + mw + '</div></div>' +
     '<div class="card-body"><h3 class="card-title"><a href="' + i.url + '">' + name + '</a></h3>' + price +
     '<div class="meta"><span class="pill store">' + tt(i.store) + '</span>' + (i.category ? '<span class="pill cat">' + tt(i.category) + '</span>' : '') +
+    (i.matched_keyword ? '<span class="pill kw" title="Encontrado via palavra-chave">' + i.matched_keyword + '</span>' : '') +
     '<span class="when">' + (i.published_at || i.created_at || '').slice(0,10) + '</span></div>' +
     '<a class="btn-ver" href="' + i.url + '" rel="noopener">Ver oferta</a></div></div>';
 }

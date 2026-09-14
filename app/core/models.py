@@ -23,6 +23,7 @@ class RawMessage(BaseModel):
     media_path: Optional[str] = None
     media_url: Optional[str] = None
     urls: List[str] = Field(default_factory=list)
+    matched_keyword: Optional[str] = None
     attempts: int = 0
     correlation_id: Optional[str] = None
     received_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -39,6 +40,7 @@ class ParsedPromotion(BaseModel):
     original_url: Optional[str] = None
     all_urls: List[str] = Field(default_factory=list)
     category: Optional[str] = None
+    matched_keyword: Optional[str] = None
 
 
 class Promotion(BaseModel):
@@ -58,6 +60,7 @@ class Promotion(BaseModel):
     affiliate_url: Optional[str] = None
     image_url: Optional[str] = None
     category: Optional[str] = None
+    matched_keyword: Optional[str] = None
     status: PromotionStatus = PromotionStatus.PENDING
     content_hash: Optional[str] = None
     filter_reason: Optional[str] = None

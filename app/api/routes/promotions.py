@@ -45,6 +45,7 @@ class PromotionOut(BaseModel):
     affiliate_url: Optional[str] = None
     image_url: Optional[str] = None
     category: Optional[str] = None
+    matched_keyword: Optional[str] = None
     status: str
     created_at: datetime
     published_at: Optional[datetime] = None

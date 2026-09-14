@@ -92,6 +92,7 @@ class PromotionParser:
             original_url=primary_url,
             all_urls=urls,
             category=category,
+            matched_keyword=message.matched_keyword,
         )
 
     def extract_urls(self, text: str) -> List[str]:

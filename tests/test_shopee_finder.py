@@ -88,12 +88,16 @@ async def test_search_maps_and_filters():
     assert offer["item_id"] == 1001
     assert offer["discount_percentage"] == 50
     assert offer["original_price"] == pytest.approx(318.0, rel=1e-6)
-    raw = finder.build_message(offer)
+    raw = finder.build_message(offer, matched_keyword="fone bluetooth")
     assert raw.source == "shopee_finder"
     assert raw.source_message_id == "shopee-1001"
     assert raw.media_url == "https://cf.shopee.com.br/img/1001.jpg"
     assert "50% OFF" in raw.text
     assert "shopee.com.br/product/7/1001" in raw.text
+    assert raw.matched_keyword == "fone bluetooth"
+
+    raw_none = finder.build_message(offer)
+    assert raw_none.matched_keyword is None
 
 
 @pytest.mark.asyncio
@@ -122,6 +126,7 @@ async def test_scan_enqueues_matching_offers():
     assert found == 1
     assert len(queue.items) == 1
     assert queue.items[0].source_message_id == "shopee-2001"
+    assert queue.items[0].matched_keyword == "fone bluetooth"
 
 
 @pytest.mark.asyncio

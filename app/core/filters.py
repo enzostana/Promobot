@@ -59,9 +59,11 @@ class PromotionFilter:
             )
 
         # 6. Check allowed categories (whitelist is strict: missing/unknown
-        # categories are rejected so only the configured niches are published)
+        # categories are rejected so only the configured niches are published).
+        # Products matched via keyword bypass the whitelist, as the user opted
+        # to post every keyword-hit even when the inferred category is absent.
         allowed_categories = self.settings.get_allowed_categories()
-        if allowed_categories:
+        if allowed_categories and not promotion.matched_keyword:
             if promotion.category is None or promotion.category.lower() not in allowed_categories:
                 return FilterResult(
                     passed=False,

@@ -4,7 +4,7 @@ import pytest
 from app.config.settings import Settings
 from app.core.models import PromotionStatus, RawMessage
 from app.core.processor import PromotionProcessor
-from app.finder.mercadolivre import MercadoLivreFinder, _enlarge_thumbnail
+from app.finder.mercadolivre import MercadoLivreFinder, _matched_keyword, _enlarge_thumbnail
 
 
 def _finder_settings(**overrides) -> Settings:
@@ -270,6 +270,62 @@ async def test_credentials_not_required_for_scraping():
     assert finder.enabled() is True
     assert finder.label == "Mercado Livre"
     assert finder.interval_min == 30
+
+
+def test_matched_keyword_helper():
+    assert _matched_keyword("Fone bluetooth TWS Pro", ["fone bluetooth", "smart tv"]) == "fone bluetooth"
+    assert _matched_keyword("Camêra de segurança", ["camera"]) == "camera"
+    assert _matched_keyword("Smart TV 50", ["fone bluetooth"]) is None
+    assert _matched_keyword("Smart TV 50", []) is None
+
+
+def test_build_message_includes_matched_keyword():
+    finder = MercadoLivreFinder(_finder_settings())
+    raw = finder.build_message({
+        "item_id": "1001",
+        "product_name": "Fone bluetooth TWS Pro",
+        "price": 100.0,
+        "original_price": 200.0,
+        "discount_percentage": 50.0,
+        "permalink": "https://produto.mercadolivre.com.br/MLB-1001-_JM",
+        "thumbnail": "https://http2.mlstatic.com/x-I.jpg",
+        "matched_keyword": "fone bluetooth",
+    })
+    assert raw.matched_keyword == "fone bluetooth"
+
+
+def test_passes_records_matched_keyword():
+    finder = MercadoLivreFinder(_finder_settings())
+    offer = {
+        "item_id": "1001",
+        "product_name": "Fone bluetooth TWS Pro",
+        "price": 100.0,
+        "original_price": 200.0,
+        "discount_percentage": 50.0,
+        "permalink": "https://produto.mercadolivre.com.br/MLB-1001-_JM",
+    }
+    assert finder._passes(offer) is True
+    assert offer["matched_keyword"] == "fone bluetooth"
+
+
+@pytest.mark.asyncio
+async def test_scan_picked_offer_carries_matched_keyword():
+    finder = MercadoLivreFinder(
+        _finder_settings(MEL_FINDER_KEYWORDS="smart watch,fone bluetooth"),
+        client=_mock_client_for(_offers_page_html()),
+    )
+
+    class RecordingQueue:
+        def __init__(self):
+            self.items = []
+
+        async def enqueue(self, raw):
+            self.items.append(raw)
+
+    queue = RecordingQueue()
+    await finder.scan(queue)
+    assert queue.items
+    assert queue.items[0].matched_keyword == "fone bluetooth"
 
 
 @pytest.mark.asyncio

@@ -73,6 +73,17 @@ def _item_id(url: str, title: str) -> str:
     return (slug or "").strip("-") or "-"
 
 
+def _matched_keyword(title: str, keywords: List[str]) -> Optional[str]:
+    """Retorna a primeira keyword configurada presente no título (folded)."""
+    if not keywords:
+        return None
+    folded_title = _fold_text(title or "")
+    for kw in keywords:
+        if _fold_text(kw) in folded_title:
+            return kw
+    return None
+
+
 def _find_balanced_json(html: str, start: int) -> Optional[str]:
     """Retorna o trecho JSON balanceado de um array cujo '[' está em *start*."""
     depth = 0
@@ -302,8 +313,8 @@ class MercadoLivreFinder:
                 return False
             if st.MEL_FINDER_MAX_PRICE and offer["price"] > st.MEL_FINDER_MAX_PRICE:
                 return False
-            title = _fold_text(offer["product_name"] or "")
-            if self.keywords and not any(_fold_text(k) in title for k in self.keywords):
+            offer["matched_keyword"] = _matched_keyword(offer["product_name"] or "", self.keywords)
+            if self.keywords and offer["matched_keyword"] is None:
                 return False
         except Exception:
             return False
@@ -331,6 +342,7 @@ class MercadoLivreFinder:
             text=text,
             urls=[offer["permalink"]],
             media_url=offer["thumbnail"] or None,
+            matched_keyword=offer.get("matched_keyword"),
         )
 
     async def scan(self, queue, limit: int = 50) -> int:

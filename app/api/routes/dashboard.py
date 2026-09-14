@@ -414,6 +414,9 @@ PROMOCOES_PARTIAL = '''<div data-tab="promocoes">
                             {% else %}
                             <span style="color:var(--text-faint);">—</span>
                             {% endif %}
+                            {% if p.matched_keyword %}
+                            <span class="badge badge-blue" title="Encontrado via palavra-chave: {{ p.matched_keyword }}">kw</span>
+                            {% endif %}
                         </td>
                         <td>
                             {% if p.status == 'published' %}

@@ -28,6 +28,7 @@ class PromotionRepository:
             affiliate_url=promo.affiliate_url,
             image_url=promo.image_url,
             category=promo.category,
+            matched_keyword=promo.matched_keyword,
             status=promo.status.value,
             content_hash=promo.content_hash,
             filter_reason=promo.filter_reason,

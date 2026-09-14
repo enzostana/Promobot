@@ -204,3 +204,32 @@ def test_no_allowlist_allows_unknown_category():
 
     assert promo_filter.evaluate(_category_promo(None)).passed is True
     assert promo_filter.evaluate(_category_promo("tecnologia")).passed is True
+
+
+def test_keyword_bypasses_category_whitelist():
+    # A product matched via keyword must be posted even when its category is
+    # missing or outside the strict allowed_categories allowlist.
+    settings = Settings(
+        APP_ENV="test",
+        BLOCKED_STORES="",
+        BLOCKED_CATEGORIES="moda",
+        ALLOWED_CATEGORIES="tecnologia,academia",
+    )
+    promo_filter = PromotionFilter(settings=settings)
+
+    by_kw = _category_promo(None, msg_id="c-kw", name="Fragrância Premium")
+    by_kw.matched_keyword = "perfume"
+    res = promo_filter.evaluate(by_kw)
+    assert res.passed is True
+    assert res.reason is None
+
+    blocked_cat = _category_promo("moda", msg_id="c-kw2")
+    blocked_cat.matched_keyword = "camiseta"
+    res = promo_filter.evaluate(blocked_cat)
+    assert res.passed is False
+    assert "Categoria bloqueada" in res.reason
+
+    no_kw = _category_promo(None, msg_id="c-kw3")
+    res = promo_filter.evaluate(no_kw)
+    assert res.passed is False
+    assert "desconhecida" in res.reason

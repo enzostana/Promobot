@@ -35,6 +35,26 @@ def test_parse_message_with_prices(parser):
     assert parsed.category == "tecnologia"
 
 
+def test_parse_passes_matched_keyword(parser):
+    raw = RawMessage(
+        id="1-kw",
+        source="mel_finder",
+        source_message_id="101-kw",
+        source_chat_id="caçador:mercadolivre",
+        text=(
+            "🔥 Fone bluetooth TWS\n"
+            "💰 De: R$ 200,00\n"
+            "🔥 Por: R$ 100,00\n"
+            "📉 50% OFF\n\n"
+            "https://produto.mercadolivre.com.br/MLB-1-_JM"
+        ),
+        urls=["https://produto.mercadolivre.com.br/MLB-1-_JM"],
+        matched_keyword="fone bluetooth",
+    )
+    parsed = parser.parse(raw)
+    assert parsed.matched_keyword == "fone bluetooth"
+
+
 def test_parse_message_without_price(parser):
     text = (
         "Confira este produto imperdível!\n"

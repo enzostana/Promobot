@@ -162,7 +162,7 @@ class ShopeeFinder:
         offers = [self._offer_from_node(node) for node in nodes]
         return [offer for offer in offers if self._passes(offer)]
 
-    def build_message(self, offer: dict) -> RawMessage:
+    def build_message(self, offer: dict, matched_keyword: Optional[str] = None) -> RawMessage:
         lines = [f"🔥 {offer['product_name'] or 'Oferta'}"[:200]]
         if offer.get("original_price"):
             lines.append("")
@@ -186,6 +186,7 @@ class ShopeeFinder:
             text=text,
             urls=[url] if url else [],
             media_url=offer["image_url"] or None,
+            matched_keyword=matched_keyword,
         )
 
     async def scan(self, queue, limit: int = 20) -> int:
@@ -197,7 +198,7 @@ class ShopeeFinder:
                 logger.warning(f"[FINDER] erro na busca '{keyword}': {e}")
                 continue
             for offer in offers:
-                raw = self.build_message(offer)
+                raw = self.build_message(offer, matched_keyword=keyword)
                 await queue.enqueue(raw)
                 total += 1
         return total

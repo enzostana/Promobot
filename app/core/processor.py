@@ -131,6 +131,7 @@ class PromotionProcessor:
                 affiliate_url=affiliate_url,
                 image_url=raw_msg.media_path or raw_msg.media_url,
                 category=parsed.category,
+                matched_keyword=parsed.matched_keyword,
                 status=PromotionStatus.PENDING,
                 content_hash=content_hash,
                 created_at=datetime.now(timezone.utc),

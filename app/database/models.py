@@ -40,6 +40,7 @@ class PromotionModel(Base):
     affiliate_url = Column(Text, nullable=True)
     image_url = Column(Text, nullable=True)
     category = Column(String(100), index=True, nullable=True)
+    matched_keyword = Column(String(100), nullable=True)
     status = Column(String(50), default="pending", index=True, nullable=False)
     content_hash = Column(String(64), index=True, nullable=True)
     filter_reason = Column(Text, nullable=True)
