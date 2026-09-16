@@ -484,6 +484,35 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                 </div>
             </div>
 
+            <!-- Caçador Amazon -->
+            <div class="card">
+                <div class="card-header"><h2 class="font-bold" style="color:var(--text-primary);">Caçador Amazon</h2></div>
+                <div class="card-body">
+                    <p class="text-sm mb-4" style="color:var(--text-muted);">Busca automática na página pública de Ofertas da Amazon (amazon.com.br/deals). Sem credenciais: o caçador raspa o storefront, filtra pelas regras abaixo e enfileira as ofertas — a tag <code>AMAZON_TAG</code> é injetada no pipeline.</p>
+                    <div class="mb-4">
+                        <label>Ligado</label>
+                        <select id="amazon_finder_enabled">
+                            <option value="1">Ligado</option>
+                            <option value="0">Desligado</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label>Keywords do filtro (Amazon)</label>
+                        <div class="chips" id="chips-amazon_finder_keywords"></div>
+                        <input type="text" class="chip-input" id="input-amazon_finder_keywords" placeholder="digite e pressione Enter para adicionar" autocomplete="off">
+                        <input type="hidden" id="amazon_finder_keywords">
+                        <p class="hint">Termos que serão procurados no título da oferta. Vazio = volta às keywords padrão do ambiente.</p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div><label>Desc. mín. (%)</label><input type="text" id="amazon_finder_min_discount"></div>
+                        <div><label>Preço máx. (R$)</label><input type="text" id="amazon_finder_max_price"></div>
+                        <div><label>Intervalo (min)</label><input type="text" id="amazon_finder_interval_min"></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSection('caçador', ['amazon_finder_enabled','amazon_finder_keywords','amazon_finder_min_discount','amazon_finder_max_price','amazon_finder_interval_min'], 'msg-cacador-amazon')">Salvar Caçador Amazon</button>
+                    <div id="msg-cacador-amazon" class="msg"></div>
+                </div>
+            </div>
+
             <!-- Ações -->
             <div class="card">
                 <div class="card-header"><h2 class="font-bold" style="color:var(--text-primary);">Ações</h2></div>
@@ -518,7 +547,7 @@ PAINEL_HTML = r'''<!DOCTYPE html>
         })();
 
         const SECRET_KEYS = ["amazon_tag","mercadolivre_tag","shopee_tag","shopee_app_id","shopee_api_app_id","shopee_api_secret","mel_api_client_id","mel_api_client_secret","mel_refresh_token"];
-        const TAG_KEYS = ["blocked_keywords","mel_finder_keywords"];
+        const TAG_KEYS = ["blocked_keywords","mel_finder_keywords","amazon_finder_keywords"];
         const TAG_DATA = {};
         function splitTags(value) {
             return String(value || "").split(",").map(s => s.trim()).filter(Boolean);

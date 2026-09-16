@@ -154,7 +154,8 @@ class Worker:
         await redis_client.aclose()
 
     async def _finder_loop(self) -> None:
-        """Periódico: consulta as APIs de afiliados (Shopee, Mercado Livre) e enfileira ofertas."""
+        """Periódico: consulta as APIs de afiliados (Shopee, Mercado Livre, Amazon) e enfileira ofertas."""
+        from app.finder.amazon import AmazonFinder
         from app.finder.mercadolivre import MercadoLivreFinder
         from app.finder.shopee import ShopeeFinder
 
@@ -171,6 +172,7 @@ class Worker:
                         self.settings,
                         refresh_saver=self._save_mel_refresh_token,
                     ),
+                    AmazonFinder(self.settings),
                 ]
                 intervals = []
                 for finder in finders:

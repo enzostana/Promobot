@@ -100,6 +100,13 @@ class Settings(BaseSettings):
     MEL_FINDER_INTERVAL_MIN: int = 30
     MEL_FINDER_PAGES: int = 3
 
+    # Amazon Finder (caçador via scraping da página pública de ofertas)
+    AMAZON_FINDER_ENABLED: bool = False
+    AMAZON_FINDER_KEYWORDS: str = "fone bluetooth,smart watch,smart tv,cafeteira,perfume masculino,tênis"
+    AMAZON_FINDER_MIN_DISCOUNT: float = 20.0
+    AMAZON_FINDER_MAX_PRICE: float = 500.0
+    AMAZON_FINDER_INTERVAL_MIN: int = 30
+
     # Site público (Rufino Promo)
     SITE_TITLE: str = "Rufino Promo"
     SITE_REFRESH_SECONDS: int = 20
@@ -165,6 +172,11 @@ class Settings(BaseSettings):
         if not self.MEL_FINDER_KEYWORDS:
             return []
         return [k.strip() for k in self.MEL_FINDER_KEYWORDS.split(",") if k.strip()]
+
+    def get_amazon_finder_keywords(self) -> List[str]:
+        if not self.AMAZON_FINDER_KEYWORDS:
+            return []
+        return [k.strip() for k in self.AMAZON_FINDER_KEYWORDS.split(",") if k.strip()]
 
     def get_blocked_keywords(self) -> List[str]:
         if not self.BLOCKED_KEYWORDS:

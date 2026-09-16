@@ -55,6 +55,12 @@ EDITABLE_KEYS: Dict[str, Tuple[str, str, bool, str]] = {
     "mel_finder_max_price": ("MEL_FINDER_MAX_PRICE", "float", False, "Preço máximo (R$)"),
     "mel_finder_interval_min": ("MEL_FINDER_INTERVAL_MIN", "int", False, "Intervalo entre varreduras (min)"),
     "mel_finder_pages": ("MEL_FINDER_PAGES", "int", False, "Qtd de páginas de ofertas a varrer"),
+    # Caçador de ofertas (Amazon)
+    "amazon_finder_enabled": ("AMAZON_FINDER_ENABLED", "bool", False, "Caçador Amazon ligado ('1' sim, '0' não)"),
+    "amazon_finder_keywords": ("AMAZON_FINDER_KEYWORDS", "str", False, "Keywords do caçador Amazon (separadas por vírgula)"),
+    "amazon_finder_min_discount": ("AMAZON_FINDER_MIN_DISCOUNT", "float", False, "Desconto mínimo p/ publicar (%)"),
+    "amazon_finder_max_price": ("AMAZON_FINDER_MAX_PRICE", "float", False, "Preço máximo (R$)"),
+    "amazon_finder_interval_min": ("AMAZON_FINDER_INTERVAL_MIN", "int", False, "Intervalo entre varreduras (min)"),
 }
 
 SECTIONS: Dict[str, List[str]] = {
@@ -72,6 +78,8 @@ SECTIONS: Dict[str, List[str]] = {
         "mel_api_client_id", "mel_api_client_secret", "mel_finder_enabled",
         "mel_finder_keywords", "mel_finder_min_discount", "mel_finder_max_price",
         "mel_finder_interval_min", "mel_finder_pages", "mel_refresh_token",
+        "amazon_finder_enabled", "amazon_finder_keywords", "amazon_finder_min_discount",
+        "amazon_finder_max_price", "amazon_finder_interval_min",
     ],
 }
 
@@ -148,6 +156,9 @@ def validate_section(section: str, payload: Dict[str, str]) -> List[str]:
             if key == "mel_finder_min_discount" and not (0 <= number <= 100):
                 errors.append("'mel_finder_min_discount' deve estar entre 0 e 100")
                 continue
+            if key == "amazon_finder_min_discount" and not (0 <= number <= 100):
+                errors.append("'amazon_finder_min_discount' deve estar entre 0 e 100")
+                continue
             if key == "shopee_finder_min_rating" and not (0 <= number <= 5):
                 errors.append("'shopee_finder_min_rating' deve estar entre 0 e 5")
                 continue
@@ -163,6 +174,8 @@ def validate_section(section: str, payload: Dict[str, str]) -> List[str]:
                 errors.append(f"'{key}' deve ser maior ou igual a 0")
             if key == "shopee_finder_interval_min" and number < 1:
                 errors.append("'shopee_finder_interval_min' deve ser maior ou igual a 1")
+            if key == "amazon_finder_interval_min" and number < 1:
+                errors.append("'amazon_finder_interval_min' deve ser maior ou igual a 1")
         if kind == "bool" and value not in ("0", "1"):
             errors.append(f"'{key}' deve ser '0' ou '1'")
     return errors

@@ -1,6 +1,6 @@
 # PromoBot — Agregador e Distribuidor de Promoções
 
-O **PromoBot** captura promoções de várias fontes — canais/grupos do Telegram e caçadores automáticos de ofertas (Mercado Livre e Shopee) —, extrai e normaliza título, preços e desconto, converte os links para programas de afiliados (Amazon, Mercado Livre, Shopee), aplica filtros por nicho e anti-scam, evita duplicações e publica as ofertas formatadas no Telegram e no WhatsApp.
+O **PromoBot** captura promoções de várias fontes — canais/grupos do Telegram e caçadores automáticos de ofertas (Mercado Livre, Shopee e Amazon) —, extrai e normaliza título, preços e desconto, converte os links para programas de afiliados (Amazon, Mercado Livre, Shopee), aplica filtros por nicho e anti-scam, evita duplicações e publica as ofertas formatadas no Telegram e no WhatsApp.
 
 O núcleo de processamento é desacoplado da plataforma de mensageria: os adaptadores de entrada/saída (`Telegram`, `WhatsApp`) são plugáveis, e a lógica de negócio (`parser`, `filters`, `deduplicator`, `formatter`, `processor`) permanece idêntica para qualquer canal novo. Também inclui um **painel de controle**, um **dashboard** com filtros e um **site público** de ofertas.
 
@@ -10,6 +10,7 @@ O núcleo de processamento é desacoplado da plataforma de mensageria: os adapta
 
 - **Caçador Mercado Livre** — faz scraping da página pública de ofertas (`/ofertas`, até N páginas), filtra por keywords, desconto mínimo e teto de preço, e publica as ofertas. Os links são gerados pelo **Gerador de Links oficial de afiliado** (links curtos `meli.la`) usando a sessão `ssid` da sua conta — o link publicado é sempre o **produto ofertado, com a headline atribuída**, nunca a lista `/social/<word>`.
 - **Caçador Shopee** — busca via Open API de Afiliados Shopee por keyword, com filtros de desconto, vendas mínimas, avaliação e teto de preço.
+- **Caçador Amazon** — raspa a página pública de Ofertas (`amazon.com.br/deals`), extrai o JSON embutido do storefront, filtra por keywords, desconto mínimo e teto de preço. O link publicado é o produto canônico `/dp/<ASIN>` — a tag de afiliado é injetada pelo pipeline.
 - **Listener do Telegram** — captura mensagens de canais/grupos de origem via MTProto (Telethon).
 - **Publicação dupla** — Telegram (Bot API) e **WhatsApp (Evolution API)**, com imagem quando disponível.
 - **OAuth Mercado Livre** — fluxo completo (Authorization Code + PKCE) que guarda o refresh token para renovar o token e trocar cookies de forma segura.
@@ -24,9 +25,9 @@ O núcleo de processamento é desacoplado da plataforma de mensageria: os adapta
 ## Arquitetura do Sistema
 
 ```
-[ TelegramSource (Telethon) ]   [ Caçador MEL (scraping) ]   [ Caçador Shopee (Open API) ]
-        │                               │                            │
-        └───────────────► RawMessage ◄──┴────────────────────────────┘
+[ TelegramSource (Telethon) ]   [ Caçador MEL (scraping) ]   [ Caçador Shopee (Open API) ]   [ Caçador Amazon (scraping) ]
+        │                               │                            │                              │
+        └───────────────► RawMessage ◄──┴────────────────────────────┴──────────────────────────────┘
                           │
                           ▼
               [ Fila Redis: RPUSH/BLPOP ]
@@ -50,7 +51,7 @@ O núcleo de processamento é desacoplado da plataforma de mensageria: os adapta
 - **`app/adapters/`** — `TelegramSource` (listener MTProto via Telethon), `TelegramPublisher` (Bot API) e `WhatsAppPublisher` (Evolution API).
 - **`app/core/`** — regras de negócio desacopladas: `parser.py` (preços em `R$ 1.899,00`, desconto, categoria), `deduplicator.py` (duplicatas por URL canônica/id/hash), `filters.py` (preço, lojas, categorias, keywords), `formatter.py`, `processor.py` (orquestrador) e `runtime_settings.py` (overrides dinâmicos).
 - **`app/affiliates/`** — provedores modulares com registro dinâmico: `AmazonProvider`, `MercadoLivreProvider` (+ `MeliLinkMinter` para o mint oficial) e `ShopeeProvider`.
-- **`app/finder/`** — caçadores automáticos: `MercadoLivreFinder` (scraping SSR) e `ShopeeFinder` (Open API).
+- **`app/finder/`** — caçadores automáticos: `MercadoLivreFinder` (scraping SSR), `ShopeeFinder` (Open API) e `AmazonFinder` (scraping do storefront de ofertas).
 - **`app/database/`** — SQLAlchemy 2.0 assíncrono e repositórios.
 - **`app/workers/`** — fila Redis, worker resiliente (retry/dead-letter) e health server.
 - **`app/api/`** — API FastAPI: painel, dashboard, site público, OAuth MEL, promoções e fontes.
@@ -160,6 +161,18 @@ MEL_OAUTH_REDIRECT_URI=https://seu-dominio/
 
 As keywords e exclusões também podem ser editadas no painel via **chips** (adicionar/remover termos) — a lista vazia volta ao padrão do ambiente.
 
+### Caçador Amazon (scraping de Ofertas)
+
+```env
+AMAZON_FINDER_ENABLED=0
+AMAZON_FINDER_KEYWORDS=smart tv,smartphone,fone bluetooth,cafeteira,perfume masculino
+AMAZON_FINDER_MIN_DISCOUNT=20.0
+AMAZON_FINDER_MAX_PRICE=500.0
+AMAZON_FINDER_INTERVAL_MIN=30
+```
+
+O caçador raspa `https://www.amazon.com.br/deals` — **não** exige credenciais. A página é um storefront JS: o HTML traz um JSON embutido com ~30 ofertas por fetch (título, ASIN, preço da oferta, preço de antes e badge de desconto). Por isso o caçador faz um único fetch por intervalo e filtra pelas **keywords** (termo presente no título), desconto mínimo e teto de preço. O link gerado é o produto canônico `/dp/<ASIN>` e a sua tag (`AMAZON_TAG`) é injetada pelo pipeline.
+
 ### Caçador Shopee (Open API)
 
 ```env
@@ -217,7 +230,7 @@ MIN_DISCOUNT_PERCENT=0.0
 # MAX_PRICE=3000.0
 
 ALLOWED_STORES=
-BLOCKED_STORES=amazon
+BLOCKED_STORES=
 
 # Allowlist estrita de categorias: só os nichos do canal
 ALLOWED_CATEGORIES=tecnologia,academia
