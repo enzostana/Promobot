@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Dict, List, Optional
 from uuid import uuid4
@@ -46,16 +47,22 @@ async def _get_worker_status() -> dict:
             last_raw = await client.get("promobot:last_processed:worker")
             queue_len = await client.llen(settings.REDIS_QUEUE_NAME)
             dead_len = await client.llen(f"{settings.REDIS_QUEUE_NAME}:dead")
+            mint_raw = await client.get("promobot:mel_mint_status")
         finally:
             await client.aclose()
         last_processed_at = datetime.fromtimestamp(float(last_raw), tz=timezone.utc) if last_raw else None
         age = (datetime.now(timezone.utc) - last_processed_at).total_seconds() if last_processed_at else None
+        try:
+            mel_mint = json.loads(mint_raw) if mint_raw else None
+        except (TypeError, ValueError):
+            mel_mint = None
         return {
             "queue_length": queue_len,
             "dead_letter_length": dead_len,
             "last_processed_at": last_processed_at.isoformat() if last_processed_at else None,
             "last_processed_seconds_ago": round(age) if age is not None else None,
             "status": "healthy" if last_processed_at else "unknown",
+            "mel_mint": mel_mint,
         }
     except Exception as e:
         logger.warning(f"[PAINEL] erro ao ler status do worker: {e}")
@@ -289,6 +296,9 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                 <span>Fila: <strong id="ws-queue" style="color:var(--text-primary);">—</strong></span>
                 <span>Dead-letter: <strong id="ws-dead" style="color:var(--text-primary);">—</strong></span>
                 <span>Última mensagem: <strong id="ws-last" style="color:var(--text-primary);">—</strong></span>
+            </div>
+            <div id="mint-alert" style="display:none; margin-top:10px; padding:10px 14px; border-radius:10px; background:var(--red); color:#fff; font-weight:600; font-size:0.82rem;">
+                ⚠️ Sessão da conta Mercado Livre rejeitada — os links saem sem header (e, com MINT_STRICT ligado, sem posts). Atualize o secret <code>mel_session</code>.
             </div>
         </div>
 
@@ -630,6 +640,9 @@ PAINEL_HTML = r'''<!DOCTYPE html>
                 document.getElementById('ws-dead').textContent = data.worker.dead_letter_length ?? '—';
                 const last = data.worker.last_processed_seconds_ago;
                 document.getElementById('ws-last').textContent = last == null ? '—' : last + 's atrás';
+                const mint = data.worker.mel_mint;
+                document.getElementById('mint-alert').style.display =
+                    (mint && mint.mint_enabled && mint.ok === false) ? 'block' : 'none';
             } catch (e) { console.error(e); }
         }
         async function saveSection(section, keys, msgId) {

@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     MERCADOLIVRE_ROUTE: str = "product"
     MERCADOLIVRE_MINT: bool = False
     MERCADOLIVRE_SESSION_FILE: Optional[str] = None
+    # True = publicar MEL apenas com link oficial mintado (com header); sem
+    # sessão válida a oferta é descartada em vez de cair no fallback.
+    MERCADOLIVRE_MINT_STRICT: bool = False
     SHOPEE_APP_ID: Optional[str] = None
     SHOPEE_TAG: Optional[str] = None
 

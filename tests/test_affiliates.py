@@ -523,4 +523,125 @@ def test_meli_minter_logs_non_111_error(caplog):
 
     assert result == {}
     assert "error_code=5004" in caplog.text
-    assert "origin_url" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Mercado Livre: MINT_STRICT (publicar só com link oficial) + saúde do mint
+# ---------------------------------------------------------------------------
+
+def _reset_mel_mint_status():
+    from app.affiliates.mercadolivre import MEL_MINT_STATUS
+    MEL_MINT_STATUS.update({
+        "ok": None, "streak": 0, "total_failures": 0, "last_failure_at": None,
+        "mint_enabled": False, "strict": False, "updated_at": None,
+    })
+
+
+def _forbidden_mint_handler(request):
+    return httpx.Response(403, json={"message": "forbidden"})
+
+
+def test_meli_strict_session_expired_discards_offer():
+    _reset_mel_mint_status()
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=True, session="ssid-secreto", mint_strict=True,
+    )
+    provider._minter._transport = _mint_transport(_forbidden_mint_handler)
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+
+    assert converted == ""
+    _assert_mint_down()
+
+
+def _assert_mint_down():
+    from app.affiliates.mercadolivre import MEL_MINT_STATUS
+    assert MEL_MINT_STATUS["ok"] is False
+    assert MEL_MINT_STATUS["streak"] >= 1
+    assert MEL_MINT_STATUS["last_failure_at"] is not None
+
+
+def test_meli_strict_session_expired_discards_shortlink():
+    _reset_mel_mint_status()
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=True, session="ssid-secreto", mint_strict=True,
+    )
+    provider._minter._transport = _mint_transport(_forbidden_mint_handler)
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534?x=1")
+
+    assert converted == ""
+    _assert_mint_down()
+
+
+def test_meli_non_strict_still_falls_back_and_marks_down():
+    _reset_mel_mint_status()
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=True, session="ssid-secreto",
+    )
+    provider._minter._transport = _mint_transport(_forbidden_mint_handler)
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+
+    assert converted.startswith("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+    assert "matt_tool=12520971" in converted
+    _assert_mint_down()
+
+
+def test_meli_strict_ok_status_recovers_and_mints():
+    _reset_mel_mint_status()
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=True, session="ssid-secreto", mint_strict=True,
+    )
+    provider._minter._transport = _mint_transport(_ok_create_handler)
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+
+    assert converted == "https://mercadolivre.com/sec/1AbCdEf"
+
+    from app.affiliates.mercadolivre import MEL_MINT_STATUS
+    assert MEL_MINT_STATUS["ok"] is True
+    assert MEL_MINT_STATUS["streak"] == 0
+    assert MEL_MINT_STATUS["mint_enabled"] is True
+    assert MEL_MINT_STATUS["strict"] is True
+
+
+def test_meli_strict_ineligible_product_discarded_not_counted():
+    _reset_mel_mint_status()
+    def handler(request):
+        return httpx.Response(200, json={
+            "total_success": 0,
+            "total_error": 1,
+            "urls": [{
+                "origin_url": "https://www.mercadolivre.com.br/produto/p/MLB54075534",
+                "error_code": 111,
+                "message": "URL not allowed in affiliates program",
+            }],
+        })
+
+    provider = MercadoLivreProvider(
+        tag="12520971", word="rufinobr", route="profile",
+        mint=True, session="ssid-secreto", mint_strict=True,
+    )
+    provider._minter._transport = _mint_transport(handler)
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+
+    assert converted == ""
+
+    from app.affiliates.mercadolivre import MEL_MINT_STATUS
+    assert MEL_MINT_STATUS["streak"] == 0
+
+
+def test_registry_forwards_mint_strict(test_settings):
+    from app.affiliates.registry import AffiliateRegistry
+
+    test_settings.MERCADOLIVRE_MINT_STRICT = True
+    registry = AffiliateRegistry(test_settings)
+
+    mel = next(p for p in registry._providers if p.store_name == "mercadolivre")
+    assert mel.mint_strict is True

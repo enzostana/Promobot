@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 import unicodedata
 import urllib.parse
 from difflib import SequenceMatcher
@@ -18,6 +19,20 @@ from app.affiliates.meli_mint import (
 
 logger = logging.getLogger(__name__)
 
+# Process-wide status of the official-link minting (mirrored to Redis by the
+# worker so the painel can flag a dead session even with no new posts).
+MEL_MINT_STATUS: dict = {
+    "ok": None,          # None = sem tentativas de mint ainda
+    "streak": 0,         # falhas consecutivas de sessão/rate-limit
+    "total_failures": 0, # total acumulado no processo
+    "last_failure_at": None,
+    "mint_enabled": False,
+    "strict": False,
+    "updated_at": None,
+}
+
+_MINT_ALERT_STREAK = 3
+
 _BROWSER_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
     "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8",
@@ -33,6 +48,29 @@ def _read_session_file(path: Optional[str]) -> Optional[str]:
         return value or None
     except OSError:
         return None
+
+
+def _note_mint_failure() -> None:
+    MEL_MINT_STATUS["streak"] += 1
+    MEL_MINT_STATUS["total_failures"] += 1
+    MEL_MINT_STATUS["last_failure_at"] = time.time()
+    MEL_MINT_STATUS["ok"] = False
+    MEL_MINT_STATUS["updated_at"] = time.time()
+    if MEL_MINT_STATUS["streak"] == _MINT_ALERT_STREAK:
+        logger.error(
+            "[MELI] Sessão de afiliado rejeitada em %d tentativas seguidas; "
+            "o link oficial (com header) está indisponível. Atualize o secret "
+            "'mel_session' ou desligue MINT_STRICT para voltar ao fallback.",
+            MEL_MINT_STATUS["streak"],
+        )
+
+
+def _note_mint_ok() -> None:
+    if MEL_MINT_STATUS["streak"]:
+        logger.info("[MELI] Mint recuperado; streak de falhas resetado.")
+    MEL_MINT_STATUS["ok"] = True
+    MEL_MINT_STATUS["streak"] = 0
+    MEL_MINT_STATUS["updated_at"] = time.time()
 
 
 class MercadoLivreProvider(AffiliateProvider):
@@ -70,16 +108,21 @@ class MercadoLivreProvider(AffiliateProvider):
                  page_fetcher: Optional[Callable[[str], str]] = None,
                  mint: bool = False,
                  session_file: Optional[str] = None,
-                 session: Optional[str] = None):
+                 session: Optional[str] = None,
+                 mint_strict: bool = False):
         self.tag = tag
         self.word = word
         self.matt_word = matt_word or word
         self.route = route
         self.mint_enabled = mint
+        self.mint_strict = mint_strict
         self._resolver = resolver or self._resolve_shortlink
         self._page_fetcher = page_fetcher or self._fetch_page
         self._mint_session = session or _read_session_file(session_file)
         self._minter = MeliLinkMinter(ssid=self._mint_session, word=word) if mint else None
+        if mint:
+            MEL_MINT_STATUS["mint_enabled"] = True
+            MEL_MINT_STATUS["strict"] = mint_strict
 
     @property
     def store_name(self) -> str:
@@ -228,20 +271,24 @@ class MercadoLivreProvider(AffiliateProvider):
         try:
             minted = self._minter.create_links([canonical])
         except MeliSessionExpired as e:
+            _note_mint_failure()
             logger.warning(f"[MELI] {e} (link oficial indisponível; usando fallback).")
             return None
         except MeliRateLimited as e:
+            _note_mint_failure()
             logger.warning(f"[MELI] {e} (usando fallback).")
             return None
         except MeliUrlNotAllowed:
             logger.warning("[MELI] Produto inelegível para o programa de afiliados; usando fallback.")
             return None
         except MeliMintError as e:
+            _note_mint_failure()
             logger.warning(f"[MELI] {e} (usando fallback).")
             return None
 
         short = minted.get(canonical)
         if short:
+            _note_mint_ok()
             logger.info("[MELI] Link oficial mintado para o produto.")
         return short
 
@@ -272,6 +319,15 @@ class MercadoLivreProvider(AffiliateProvider):
         official = self._try_mint(url)
         if official:
             return official
+
+        # Strict mode: never publish a MEL offer without the official minted
+        # link (no headline). Discard it — the processor filters the offer.
+        if self.mint_enabled and self.mint_strict:
+            logger.warning(
+                "[MELI] Mint indisponível e MINT_STRICT ativo; oferta descartada "
+                "(sem link oficial com header)."
+            )
+            return ""
 
         # Fallback: the single product page bound to the user's tag. Never the
         # affiliate's /social/ listing page.

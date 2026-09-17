@@ -17,6 +17,7 @@ EDITABLE_KEYS: Dict[str, Tuple[str, str, bool, str]] = {
     "amazon_tag": ("AMAZON_TAG", "str", True, "Tag de afiliado Amazon (ex.: minhatag-20)"),
     "mercadolivre_tag": ("MERCADOLIVRE_TAG", "str", True, "Tag Mercado Livre (matt_tool)"),
     "mercadolivre_matt_word": ("MERCADOLIVRE_MATT_WORD", "str", False, "Palavra Mercado Livre (matt_word); vazio = usa a word do /social"),
+    "mercadolivre_mint_strict": ("MERCADOLIVRE_MINT_STRICT", "bool", False, "Publicar MEL só com link oficial mintado ('1' sim; sem sessão válida a oferta é descartada)"),
     "shopee_tag": ("SHOPEE_TAG", "str", True, "Tag Shopee (aff_trace_key)"),
     "shopee_app_id": ("SHOPEE_APP_ID", "str", True, "App ID do Shopee"),
     # Filtros
@@ -64,7 +65,7 @@ EDITABLE_KEYS: Dict[str, Tuple[str, str, bool, str]] = {
 }
 
 SECTIONS: Dict[str, List[str]] = {
-    "afiliados": ["amazon_tag", "mercadolivre_tag", "mercadolivre_matt_word", "shopee_tag", "shopee_app_id"],
+    "afiliados": ["amazon_tag", "mercadolivre_tag", "mercadolivre_matt_word", "mercadolivre_mint_strict", "shopee_tag", "shopee_app_id"],
     "filtros": [
         "blocked_keywords", "required_keywords", "allowed_stores", "blocked_stores",
         "allowed_categories", "blocked_categories", "min_discount_percent",

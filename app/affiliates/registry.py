@@ -27,6 +27,7 @@ class AffiliateRegistry:
             route=self.settings.MERCADOLIVRE_ROUTE,
             mint=self.settings.MERCADOLIVRE_MINT,
             session_file=self.settings.MERCADOLIVRE_SESSION_FILE,
+            mint_strict=self.settings.MERCADOLIVRE_MINT_STRICT,
         ))
         self.register(ShopeeProvider(tag=self.settings.SHOPEE_TAG, app_id=self.settings.SHOPEE_APP_ID))
 

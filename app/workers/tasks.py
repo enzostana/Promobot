@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import signal
 import time
@@ -71,6 +72,7 @@ class Worker:
                 pass
 
         redis_client = redis.from_url(self.settings.REDIS_URL)
+        self.redis_client = redis_client
 
         # Clean up old media files on startup
         await self._cleanup_media_cache()
@@ -139,6 +141,10 @@ class Worker:
                         except Exception:
                             pass
 
+                # Mirror the MEL mint health to Redis so the painel can flag a
+                # dead affiliate session ("links sem header").
+                await self._publish_mel_mint_status()
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -152,6 +158,19 @@ class Worker:
             pass
         await health_runner.cleanup()
         await redis_client.aclose()
+
+    async def _publish_mel_mint_status(self) -> None:
+        """Copies the process-wide MEL mint health to Redis for the painel."""
+        try:
+            from app.affiliates.mercadolivre import MEL_MINT_STATUS
+
+            await self.redis_client.set(
+                "promobot:mel_mint_status",
+                json.dumps(MEL_MINT_STATUS),
+                ex=6 * 3600,
+            )
+        except Exception as e:
+            logger.debug(f"[WORKER] Falha ao publicar status do mint MEL: {e}")
 
     async def _finder_loop(self) -> None:
         """Periódico: consulta as APIs de afiliados (Shopee, Mercado Livre, Amazon) e enfileira ofertas."""
@@ -190,6 +209,7 @@ class Worker:
                     logger.info(f"[FINDER] Varredura {label} concluída: {found} ofertas enfileiradas.")
 
                 interval_min = max(1, min(intervals)) if intervals else 30
+                await self._publish_mel_mint_status()
             except asyncio.CancelledError:
                 break
             except Exception as e:
