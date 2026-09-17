@@ -173,7 +173,10 @@ class ShopeeFinder:
         lines.append("")
         lines.append(f"📉 {offer['discount_percentage']}% OFF")
         text = "\n".join(lines)
-        url = offer["product_link"] or offer["offer_link"]
+        # offer_link é o link de afiliado oficial gerado pela API autenticada
+        # (s.shopee.com.br/...), que garante a atribuição da comissão. O
+        # product_link é a URL pública, sem rastreio — só usamos como fallback.
+        url = offer["offer_link"] or offer["product_link"]
         if url:
             text += f"\n\n{url}"
         item_id = offer["item_id"]

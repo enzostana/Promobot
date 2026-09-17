@@ -35,6 +35,10 @@ class ShopeeProvider(AffiliateProvider):
         re.compile(r's\.shopee\.com\.br$', re.IGNORECASE),
     ]
     SHORTLINK_PATTERN = re.compile(r'^(?:br\.)?shp\.ee$', re.IGNORECASE)
+    # Link de afiliado oficial gerado pela Open API autenticada
+    # (ex.: https://s.shopee.com.br/2LYNS7zn2S). Já contém a atribuição da conta
+    # (mmp_pid/utm_source=an_<id>), então deve passar intacto.
+    OFFICIAL_AFFILIATE_PATTERN = re.compile(r'^s\.shopee\.com\.br$', re.IGNORECASE)
 
     def __init__(self,
                  tag: Optional[str] = None,
@@ -75,6 +79,12 @@ class ShopeeProvider(AffiliateProvider):
         except Exception:
             return False
 
+    def _is_official_affiliate(self, url: str) -> bool:
+        try:
+            return bool(self.OFFICIAL_AFFILIATE_PATTERN.fullmatch(urllib.parse.urlparse(url).netloc.lower()))
+        except Exception:
+            return False
+
     def _resolve_shortlink(self, url: str) -> str:
         """Follows the shp.ee redirect chain and returns the final URL."""
         try:
@@ -107,6 +117,12 @@ class ShopeeProvider(AffiliateProvider):
     def convert(self, url: str) -> str:
         if not url:
             return ""
+
+        # Já é link de afiliado oficial da conta (API autenticada): não mexer,
+        # senão a atribuição é perdida. Adicionar aff_trace_key aqui é inócuo e
+        # o parâmetro não é reconhecido pelo Shopee para crédito de comissão.
+        if self._is_official_affiliate(url):
+            return url
 
         if self._is_shortlink(url):
             resolved = self._resolver(url)

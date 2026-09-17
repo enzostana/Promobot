@@ -130,6 +130,28 @@ async def test_scan_enqueues_matching_offers():
 
 
 @pytest.mark.asyncio
+async def test_build_message_prefers_official_offer_link():
+    """Comissão só credita com o offerLink oficial da Open API (s.shopee.com.br),
+    então ele deve prevalecer sobre o product_link público."""
+    nodes = [
+        {
+            "itemId": 3001, "shopId": 5, "productName": "Fone bluetooth X",
+            "productLink": "https://shopee.com.br/product/5/3001",
+            "offerLink": "https://s.shopee.com.br/abc123",
+            "imageUrl": "", "priceMin": "100.0", "priceMax": "100.0",
+            "priceDiscountRate": "0.5", "sales": 300, "ratingStar": "4.7",
+            "commission": "3.0", "shopName": "Loja W",
+        }
+    ]
+    finder = ShopeeFinder(_finder_settings(), client=_mock_client_for(nodes))
+    offers = await finder.search("fone bluetooth")
+    assert len(offers) == 1
+    raw = finder.build_message(offers[0], matched_keyword="fone bluetooth")
+    assert raw.urls == ["https://s.shopee.com.br/abc123"]
+    assert "https://s.shopee.com.br/abc123" in raw.text
+
+
+@pytest.mark.asyncio
 async def test_credentials_required():
     finder = ShopeeFinder(_finder_settings(SHOPEE_API_SECRET=""))
     assert finder.credentials_ok() is False

@@ -233,6 +233,17 @@ def test_shopee_provider():
     assert "oldtag" not in converted
 
 
+def test_shopee_official_affiliate_link_passes_through():
+    """Link oficial da Open API (s.shopee.com.br) não pode ser reescrito: os
+    parâmetros aff_trace_key/app_id não são reconhecidos e derrubam a comissão."""
+    provider = ShopeeProvider(tag="shopee_promo_tag", app_id="app_999")
+    url = "https://s.shopee.com.br/2LYNS7zn2S"
+
+    assert provider.can_handle(url) is True
+    assert provider._is_official_affiliate(url) is True
+    assert provider.convert(url) == url
+
+
 def test_shopee_shortlink_can_handle():
     provider = ShopeeProvider(tag="shopee_promo_tag")
 
