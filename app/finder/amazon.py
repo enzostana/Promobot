@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import re
@@ -112,6 +113,8 @@ def _product_permalink(asin: str) -> str:
 
 
 class AmazonFinder:
+    retry_attempts = 3
+    retry_backoff_s = 10.0
     """
     Caçador de ofertas da Amazon via scraping da página pública de ofertas
     (https://www.amazon.com.br/deals). A página é um storefront JS: o HTML traz
@@ -263,13 +266,28 @@ class AmazonFinder:
         return await self._scan_with(self._client, queue, limit)
 
     async def _scan_with(self, client, queue, limit: int) -> int:
-        resp = await client.get(self.deals_url, headers=UA_HEADERS)
-        if resp.status_code >= 400:
+        offers = []
+        attempts = max(1, int(self.retry_attempts))
+        for attempt in range(attempts):
+            resp = await client.get(self.deals_url, headers=UA_HEADERS)
+            if resp.status_code >= 400:
+                logger.warning(
+                    f"[FINDER-AMAZON] varredura http {resp.status_code} "
+                    f"(tentativa {attempt + 1}/{attempts}): {self.deals_url[:120]}"
+                )
+                offers = []
+            else:
+                offers = self._parse_offers(resp.text)
+            if offers:
+                break
+            if attempt < attempts - 1:
+                await asyncio.sleep(self.retry_backoff_s * (attempt + 1))
+        if not offers:
             logger.warning(
-                f"[FINDER-AMAZON] varredura http {resp.status_code}: {self.deals_url[:120]}"
+                f"[FINDER-AMAZON] sem ofertas após {attempts} tentativa(s) em "
+                f"{self.deals_url[:120]} (anti-bot intermitente; próximo ciclo tenta de novo)."
             )
             return 0
-        offers = self._parse_offers(resp.text)
         total = 0
         max_enqueued = max(1, int(limit or 0)) if limit else 0
         for offer in offers:

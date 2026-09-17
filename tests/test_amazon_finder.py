@@ -208,7 +208,48 @@ async def test_scan_http_error_returns_zero():
         _finder_settings(),
         client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     )
+    finder.retry_attempts = 1
     assert await finder.scan(RecordingQueue()) == 0
+
+
+@pytest.mark.asyncio
+async def test_scan_retries_after_503_then_succeeds():
+    calls = {"n": 0}
+    html = _deals_html(_product("B0F4ZTT2MM", "Fone bluetooth TWS Pro", 100.0, 200.0))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] < 3:
+            return httpx.Response(503, text="unavailable")
+        return httpx.Response(200, text=html)
+
+    finder = AmazonFinder(
+        _finder_settings(),
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    finder.retry_backoff_s = 0.0
+    queue = RecordingQueue()
+    found = await finder.scan(queue)
+    assert calls["n"] == 3
+    assert found == 1
+    assert queue.items[0].source_message_id == "amazon-scrape-B0F4ZTT2MM"
+
+
+@pytest.mark.asyncio
+async def test_scan_gives_up_after_all_retries():
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(503, text="unavailable")
+
+    finder = AmazonFinder(
+        _finder_settings(),
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    finder.retry_backoff_s = 0.0
+    assert await finder.scan(RecordingQueue()) == 0
+    assert calls["n"] == 3
 
 
 def test_credentials_not_required_for_scraping():
