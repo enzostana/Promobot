@@ -111,6 +111,34 @@ O núcleo de processamento é desacoplado da plataforma de mensageria: os adapta
 
 > **Produção**: o deploy em produção usa **Docker Swarm**, secret files, healthchecks e Cloudflare Tunnel. Veja o passo a passo completo em [`docs/PRODUCTION.md`](docs/PRODUCTION.md).
 
+### Rodar dois bots neste mesmo clone
+
+É possível rodar duas instâncias sem manter dois clones do código. Cada stack tem banco, Redis, sessão do Evolution API e volumes próprios. Para o segundo bot, use outro token do Telegram, outro número pareado no Evolution API e secrets com as tags de afiliado da outra pessoa.
+
+1. Copie a configuração atual como ponto de partida e edite os valores específicos do segundo bot:
+   ```bash
+   cp .env .env.bot2
+   mkdir -p secrets-bot2
+   ```
+   No `.env.bot2`, defina `INSTANCE_PREFIX=promobot2`, `SECRET_PREFIX=promobot2_`, `SECRETS_DIR_HOST=/home/cinadmin/promobot/secrets-bot2`, `EVOLUTION_INSTANCE=promobot2` e uma `EVOLUTION_API_KEY` própria. Atualize também `TELEGRAM_TARGET_CHAT`, `WHATSAPP_TARGET_CHAT`, `POSTGRES_PASSWORD_ENC`, as tags de afiliado e o token do túnel Cloudflare se quiser um painel/domínio separado. Mantenha `EVOLUTION_URL=http://evolution-api:8080` para a comunicação interna da stack.
+
+2. Crie em `secrets-bot2/` os arquivos usados pela segunda instância, com credenciais próprias onde aplicável. Os nomes seguem os arquivos em `secrets/`; use especialmente o token Telegram e as tags de afiliado do segundo titular. Registre os secrets no Swarm com o prefixo configurado:
+   ```bash
+   set -e
+   for name in postgres_password telegram_bot_token telegram_api_hash telegram_session_string amazon_tag mercadolivre_tag shopee_app_id shopee_tag mel_session; do
+     docker secret create "promobot2_${name}" "secrets-bot2/${name}.txt"
+   done
+   ```
+   Cada secret externo declarado no Compose precisa existir no Swarm. Não reutilize as tags de afiliado da primeira instância: use os valores do segundo titular tanto nos arquivos de secrets quanto nas variáveis de afiliado do `.env.bot2`, se estiverem preenchidas. Os arquivos `.env.bot2` e `secrets-bot2/` são ignorados pelo Git.
+
+3. Faça o deploy da segunda stack:
+   ```bash
+   ENV_FILE=.env.bot2 ./deploy-stack.sh promobot2
+   ```
+   A stack principal continua sendo implantada com `./deploy-stack.sh promobot`. O script usa o arquivo passado em `ENV_FILE` e não publica a porta da API da segunda stack; o Cloudflare Tunnel dela pode encaminhar para `http://api:8000` na rede interna.
+
+O serviço Evolution API da segunda stack é independente: pareie nele o segundo número do WhatsApp. Faça um teste de publicação para confirmar o destino e os links de afiliado antes de ativar os caçadores.
+
 ---
 
 ## Configuração

@@ -95,6 +95,8 @@ services:
       restart: unless-stopped
       command: >
         sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      ports:
+        - "${API_PORT:-8011}:8000"
       env_file:
         - ${ENV_FILE:-.env}
       environment:
@@ -318,28 +320,28 @@ volumes:
 secrets:
   postgres_password:
     external: true
-    name: "${INSTANCE_PREFIX}postgres_password"
+    name: "${SECRET_PREFIX:-}postgres_password"
   telegram_bot_token:
     external: true
-    name: "${INSTANCE_PREFIX}telegram_bot_token"
+    name: "${SECRET_PREFIX:-}telegram_bot_token"
   telegram_api_hash:
     external: true
-    name: "${INSTANCE_PREFIX}telegram_api_hash"
+    name: "${SECRET_PREFIX:-}telegram_api_hash"
   telegram_session_string:
     external: true
-    name: "${INSTANCE_PREFIX}telegram_session_string"
+    name: "${SECRET_PREFIX:-}telegram_session_string"
   amazon_tag:
     external: true
-    name: "${INSTANCE_PREFIX}amazon_tag"
+    name: "${SECRET_PREFIX:-}amazon_tag"
   mercadolivre_tag:
     external: true
-    name: "${INSTANCE_PREFIX}mercadolivre_tag"
+    name: "${SECRET_PREFIX:-}mercadolivre_tag"
   shopee_app_id:
     external: true
-    name: "${INSTANCE_PREFIX}shopee_app_id"
+    name: "${SECRET_PREFIX:-}shopee_app_id"
   shopee_tag:
     external: true
-    name: "${INSTANCE_PREFIX}shopee_tag"
+    name: "${SECRET_PREFIX:-}shopee_tag"
   mel_session:
     external: true
-    name: "mel_session"
+    name: "${SECRET_PREFIX:-}mel_session"

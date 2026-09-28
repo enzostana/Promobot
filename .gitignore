@@ -26,6 +26,8 @@ wheels/
 
 # Virtual environments
 .env
+/.env.*
+!/.env.example
 .venv
 env/
 venv/
@@ -46,6 +48,7 @@ redis_data/
 
 # Secrets (nunca commitar credenciais)
 secrets/*.txt
+/secrets-*/
 
 # IDE files
 .idea/
