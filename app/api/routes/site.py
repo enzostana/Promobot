@@ -729,7 +729,12 @@ async def _exchange_oauth_code(request: Request, code: str, db: AsyncSession) ->
     data_resp = resp.json()
     refresh_token = data_resp.get("refresh_token")
     if not refresh_token:
-        return False, "O MEL não retornou refresh_token (escopo offline_access ausente)."
+        granted_scope = data_resp.get("scope") or "não informado"
+        logger.warning(
+            "[MEL-AUTH] MEL respondeu sem refresh_token; escopo concedido: %s",
+            granted_scope,
+        )
+        return False, f"O MEL não retornou refresh_token (escopo concedido: {granted_scope})."
 
     try:
         await repo.upsert("mel_refresh_token", refresh_token)
@@ -765,7 +770,7 @@ async def mel_connect_page(request: Request, db: AsyncSession = Depends(get_db))
             f"{MEL_AUTH_URL}?response_type=code&client_id={urllib.parse.quote(str(client_id), safe='')}"
             f"&redirect_uri={urllib.parse.quote(settings.MEL_OAUTH_REDIRECT_URI, safe='')}"
             f"&state={urllib.parse.quote(state, safe='')}"
-            "&scope=offline_access"
+            f"&scope={urllib.parse.quote('offline_access read', safe='')}"
             f"&code_challenge={challenge}&code_challenge_method=S256"
         )
 
