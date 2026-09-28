@@ -344,4 +344,4 @@ secrets:
     name: "${SECRET_PREFIX:-}shopee_tag"
   mel_session:
     external: true
-    name: "${SECRET_PREFIX:-}mel_session"
+    name: "${MEL_SESSION_SECRET_NAME:-${SECRET_PREFIX:-}mel_session}"

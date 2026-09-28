@@ -139,6 +139,14 @@ O núcleo de processamento é desacoplado da plataforma de mensageria: os adapta
 
 O serviço Evolution API da segunda stack é independente: pareie nele o segundo número do WhatsApp. Faça um teste de publicação para confirmar o destino e os links de afiliado antes de ativar os caçadores.
 
+#### Links oficiais de afiliado do Mercado Livre no Motodev
+
+O OAuth do caçador de ofertas e a sessão do gerador oficial de links são credenciais separadas. Para criar links com a headline da conta afiliada Motodev, obtenha o cookie `ssid` enquanto estiver conectado à conta afiliada correta e rode `./scripts/setup_motodev_meli_session.sh` no servidor. O script pede o valor sem exibi-lo, cria um Docker Secret versionado e implanta apenas a stack `promobot2`; não cole o cookie no chat nem o salve no Git.
+
+O mint fica habilitado em modo de compatibilidade: enquanto a sessão não for validada, o bot mantém o fallback de produto com a etiqueta afiliada. Depois de confirmar um link oficial de produto, ative `mercadolivre_mint_strict` no painel para descartar ofertas se o gerador falhar, em vez de publicar sem a headline. Use URLs de produtos individuais; o Mercado Livre não permite gerar links de recomendação para páginas de busca, ofertas ou categorias ([regras do programa](https://www.mercadolivre.com.br/l/afiliados-paginas-nao-permitidas)).
+
+O gerador do clone replica as requisições autenticadas da Central e não é uma API pública documentada; acompanhe o status no painel, pois mudanças na Central podem exigir ajustes.
+
 ---
 
 ## Configuração
