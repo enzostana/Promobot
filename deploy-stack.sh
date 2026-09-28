@@ -45,16 +45,15 @@ with open('/tmp/promobot-rendered.yml', 'w') as f:
 EOF
 
 echo "Fazendo deploy do stack '${STACK}' a partir do YAML renderizado..."
-PW=$(grep -E '^DASHBOARD_PASSWORD=' "$COMPOSE_ENV_FILE" | cut -d= -f2-)
-echo "${PW}" | sudo -S docker stack deploy -c /tmp/promobot-rendered.yml "$STACK"
+sudo docker stack deploy -c /tmp/promobot-rendered.yml "$STACK"
 
 # O compose NÃO declara ports do evolution (evita conflito de host com o fork2,
 # que usa o mesmo docker-compose.yml). Republição da porta 8085 é reaplicada aqui
 # para que redeploys não derrubem o promobot-evo (túnel vps-vscode -> 127.0.0.1:8085).
 if [ "$STACK" = "promobot" ]; then
-  echo "${PW}" | sudo -S docker service update --publish-add published=8085,target=8080,protocol=tcp promobot_evolution-api >/dev/null 2>&1 || true
+  sudo docker service update --publish-add published=8085,target=8080,protocol=tcp promobot_evolution-api >/dev/null 2>&1 || true
 elif [ "$STACK" = "promobot2" ]; then
   # A segunda Evolution API precisa de uma porta própria para abrir o Manager
   # e parear o número do WhatsApp, sem disputar a porta 8085 da instância principal.
-  echo "${PW}" | sudo -S docker service update --publish-add published=8086,target=8080,protocol=tcp promobot2_evolution-api >/dev/null 2>&1 || true
+  sudo docker service update --publish-add published=8086,target=8080,protocol=tcp promobot2_evolution-api >/dev/null 2>&1 || true
 fi
