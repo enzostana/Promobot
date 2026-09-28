@@ -4,19 +4,21 @@ cd "$(dirname "$0")"
 STACK="${1:-promobot}"
 COMPOSE_ENV_FILE="${ENV_FILE:-.env}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT_NAME:-$STACK}"
+RENDERED_FILE="$(mktemp "${TMPDIR:-/tmp}/promobot-rendered.XXXXXX.yml")"
+trap 'rm -f "$RENDERED_FILE"' EXIT
 
 # Renderiza o compose com TODAS as interpolações resolvidas
 # (o arquivo pode ser trocado para instâncias como o promobot2)
-docker compose --project-name "$COMPOSE_PROJECT" --env-file "$COMPOSE_ENV_FILE" -f docker-compose.yml config > /tmp/promobot-rendered.yml
+docker compose --project-name "$COMPOSE_PROJECT" --env-file "$COMPOSE_ENV_FILE" -f docker-compose.yml config > "$RENDERED_FILE"
 
 # Normaliza o YAML para o formato aceito pelo `docker stack deploy` (swarm):
 #  - depends_on no formato alto (mapa) vira lista de nomes de serviço
 #  - cpus numérico vira string
-STACK_NAME="$STACK" python3 - <<'EOF'
+STACK_NAME="$STACK" RENDERED_FILE="$RENDERED_FILE" python3 - <<'EOF'
 import os
 import yaml
 
-with open('/tmp/promobot-rendered.yml') as f:
+with open(os.environ['RENDERED_FILE']) as f:
     data = yaml.safe_load(f)
 
 # `docker compose config` adiciona `name:` na raiz; swarm não aceita
@@ -40,12 +42,14 @@ for svc in data.get('services', {}).values():
 if os.environ['STACK_NAME'] != 'promobot' and 'api' in data.get('services', {}):
     data['services']['api'].pop('ports', None)
 
-with open('/tmp/promobot-rendered.yml', 'w') as f:
+with open(os.environ['RENDERED_FILE'], 'w') as f:
     yaml.safe_dump(data, f, sort_keys=False)
 EOF
 
 echo "Fazendo deploy do stack '${STACK}' a partir do YAML renderizado..."
-sudo docker stack deploy -c /tmp/promobot-rendered.yml "$STACK"
+echo "Construindo imagens da instância '${STACK}'..."
+sudo docker compose --project-name "$COMPOSE_PROJECT" --env-file "$COMPOSE_ENV_FILE" -f docker-compose.yml build migrator api worker telegram_listener
+sudo docker stack deploy -c "$RENDERED_FILE" "$STACK"
 
 # O compose NÃO declara ports do evolution (evita conflito de host com o fork2,
 # que usa o mesmo docker-compose.yml). Republição da porta 8085 é reaplicada aqui
