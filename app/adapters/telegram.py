@@ -229,6 +229,10 @@ class TelegramPublisher(Publisher):
         self.settings = settings or get_settings()
         self._client = client
 
+    @property
+    def enabled(self) -> bool:
+        return bool(self.settings.TELEGRAM_BOT_TOKEN and self.settings.TELEGRAM_TARGET_CHAT)
+
     RETRYABLE_STATUS = {429, 500, 502, 503, 504}
     MAX_RETRIES = 3
     BASE_BACKOFF = 0.5
@@ -376,7 +380,11 @@ async def run_telegram_listener():
     health_runner = await run_health_server("telegram_listener", 8082)
 
     try:
-        await source.listen()
+        if settings.TELEGRAM_LISTENER_ENABLED:
+            await source.listen()
+        else:
+            logger.info("[TELEGRAM] Listener desabilitado; serviço permanece ocioso e saudável.")
+            await asyncio.Event().wait()
     except (KeyboardInterrupt, SystemExit):
         logger.info("[TELEGRAM] Encerrando listener...")
     finally:

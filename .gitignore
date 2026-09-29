@@ -65,3 +65,6 @@ htmlcov/
 *.log
 scratch/
 media_cache/
+
+# Homepage é um repositório independente, não um módulo do Promobot.
+/homepage/

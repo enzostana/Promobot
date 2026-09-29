@@ -78,13 +78,25 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-promobot}:${POSTGRES_PASSWORD_ENC}@postgres:5432/${POSTGRES_DB:-promobot}
       - REDIS_URL=redis://redis:6379/0
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - promonet
     secrets:
       - postgres_password
-    restart: "no"
+    deploy:
+      placement:
+        constraints:
+          - node.labels.zone == pessoal
+      update_config:
+        failure_action: continue
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 12
+        window: 60s
 
   api:
       build:
@@ -233,6 +245,10 @@ services:
         reservations:
           cpus: "0.05"
           memory: "64M"
+      restart_policy:
+        condition: any
+        delay: 5s
+        window: 30s
     logging:
       driver: "json-file"
       options:

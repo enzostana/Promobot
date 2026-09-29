@@ -25,13 +25,23 @@ def _make_promotion(**overrides):
 
 
 def _settings(with_creds=True):
-    kwargs = {"APP_ENV": "test", "DEBUG": True}
+    kwargs = {
+        "APP_ENV": "test",
+        "DEBUG": True,
+        "TELEGRAM_BOT_TOKEN": None,
+        "TELEGRAM_TARGET_CHAT": None,
+    }
     if with_creds:
         kwargs.update(
             TELEGRAM_BOT_TOKEN="123:test-token",
             TELEGRAM_TARGET_CHAT="@target_channel",
         )
     return Settings(**kwargs)
+
+
+def test_publisher_enabled_requires_credentials():
+    assert TelegramPublisher(settings=_settings()).enabled is True
+    assert TelegramPublisher(settings=_settings(with_creds=False)).enabled is False
 
 
 def _http_client(handler):

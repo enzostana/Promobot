@@ -26,7 +26,17 @@ def _make_promotion(**overrides):
 
 
 def _settings(with_creds=True):
-    kwargs = {"APP_ENV": "test", "DEBUG": True}
+    # Settings reads the repository .env file, which may contain production
+    # WhatsApp credentials. Keep tests hermetic unless credentials are explicit.
+    kwargs = {
+        "APP_ENV": "test",
+        "DEBUG": True,
+        "WHATSAPP_ENABLED": True,
+        "WHATSAPP_TARGET_CHAT": None,
+        "EVOLUTION_URL": "",
+        "EVOLUTION_INSTANCE": "",
+        "EVOLUTION_API_KEY": None,
+    }
     if with_creds:
         kwargs.update(
             EVOLUTION_URL="http://evolution:8080",

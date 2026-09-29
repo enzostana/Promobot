@@ -23,6 +23,9 @@ async def _check_dependencies(settings) -> tuple[str, str, int]:
         from app.database.session import async_session_maker
         async with async_session_maker() as session:
             await session.execute(text("SELECT 1"))
+            # The API and worker need the latest promotion schema. A basic
+            # connection check alone hides failed/unfinished Alembic runs.
+            await session.execute(text("SELECT matched_keyword FROM promotions LIMIT 0"))
     except Exception as e:
         logger.error(f"[HEALTH] Database check failed: {e}")
         db_status = f"unhealthy: {str(e)}"

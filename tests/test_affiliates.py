@@ -319,10 +319,10 @@ def test_affiliate_invalid_url(test_settings):
 
 
 # ---------------------------------------------------------------------------
-# Mercado Livre: mintagem oficial (mercadolivre.com/sec) via sessão ssid
+# Mercado Livre: mintagem oficial (meli.la) via sessão ssid
 # ---------------------------------------------------------------------------
 
-def _mint_transport(create_links_handler):
+def _mint_transport(create_links_handler, tags_response=None):
     """Builds an httpx transport that bootstraps _csrf then proxies createLink."""
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
@@ -335,7 +335,7 @@ def _mint_transport(create_links_handler):
                 ]),
             )
         if path == "/affiliate-program/api/v2/stripe/user/tags":
-            return httpx.Response(200, json=[
+            return httpx.Response(200, json=tags_response if tags_response is not None else [
                 {"name": "rufinobr", "in_use": True},
             ])
         if path == "/affiliate-program/api/v2/affiliates/createLink":
@@ -352,7 +352,7 @@ def _ok_create_handler(request):
         "total_error": 0,
         "urls": [{
             "origin_url": origin,
-            "short_url": "https://mercadolivre.com/sec/1AbCdEf",
+            "short_url": "https://meli.la/1AbCdEf",
             "long_url": origin,
         }],
     })
@@ -366,9 +366,59 @@ def test_meli_minter_mints_official_short_link():
 
     assert result == {
         "https://www.mercadolivre.com.br/produto/p/MLB54075534":
-            "https://mercadolivre.com/sec/1AbCdEf",
+            "https://meli.la/1AbCdEf",
     }
     assert minter._temp_cookies.get("_csrf") == "csrf-token-abc"
+
+
+def test_meli_minter_reads_current_wrapped_tag_response():
+    observed = {}
+
+    def create_handler(request):
+        observed["tag"] = json.loads(request.content.decode())["tag"]
+        return _ok_create_handler(request)
+
+    minter = MeliLinkMinter(
+        ssid="ssid-secreto",
+        word="profile-word",
+        transport=_mint_transport(
+            create_handler,
+            {"tags": [{"tag": "active-tag-123", "in_use": True}]},
+        ),
+    )
+
+    result = minter.create_links(["https://www.mercadolivre.com.br/produto/p/MLB54075534"])
+
+    assert observed["tag"] == "active-tag-123"
+    assert result["https://www.mercadolivre.com.br/produto/p/MLB54075534"] == "https://meli.la/1AbCdEf"
+
+
+def test_meli_fallback_uses_active_tag_not_profile_word_or_stale_config():
+    def rejected_tag_handler(request):
+        origin = json.loads(request.content.decode())["urls"][0]
+        return httpx.Response(200, json={
+            "total_success": 0,
+            "total_error": 1,
+            "urls": [{
+                "origin_url": origin,
+                "error_code": 109,
+                "message": "Tag is not associated with this affiliate.",
+            }],
+        })
+
+    provider = MercadoLivreProvider(
+        tag="stale-tag", word="profile-word", mint=True, session="ssid-secreto"
+    )
+    provider._minter._transport = _mint_transport(
+        rejected_tag_handler,
+        {"tags": [{"tag": "active-tag-123", "in_use": True}]},
+    )
+
+    converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
+
+    assert "matt_tool=active-tag-123" in converted
+    assert "stale-tag" not in converted
+    assert "matt_word=profile-word" in converted
 
 
 def test_meli_mint_canonicalizes_bare_p_url():
@@ -382,7 +432,7 @@ def test_meli_mint_canonicalizes_bare_p_url():
     result = provider._minter.create_links(["https://www.mercadolivre.com.br/p/MLB54075534?matt_tool=x"])
 
     assert "https://www.mercadolivre.com.br/p/MLB54075534" in result
-    assert result["https://www.mercadolivre.com.br/p/MLB54075534"] == "https://mercadolivre.com/sec/1AbCdEf"
+    assert result["https://www.mercadolivre.com.br/p/MLB54075534"] == "https://meli.la/1AbCdEf"
 
 
 def test_meli_provider_convert_uses_official_link():
@@ -394,7 +444,7 @@ def test_meli_provider_convert_uses_official_link():
 
     converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534?matt_tool=outra")
 
-    assert converted == "https://mercadolivre.com/sec/1AbCdEf"
+    assert converted == "https://meli.la/1AbCdEf"
 
 
 def test_meli_provider_mint_disabled_returns_single_product():
@@ -612,7 +662,7 @@ def test_meli_strict_ok_status_recovers_and_mints():
 
     converted = provider.convert("https://www.mercadolivre.com.br/produto/p/MLB54075534")
 
-    assert converted == "https://mercadolivre.com/sec/1AbCdEf"
+    assert converted == "https://meli.la/1AbCdEf"
 
     from app.affiliates.mercadolivre import MEL_MINT_STATUS
     assert MEL_MINT_STATUS["ok"] is True

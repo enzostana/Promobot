@@ -4,6 +4,7 @@ import logging
 import signal
 import time
 from typing import Optional
+from sqlalchemy import text
 from app.config.settings import Settings
 from app.core.models import RawMessage
 from app.core.processor import PromotionProcessor
@@ -58,11 +59,17 @@ class Worker:
         # Start health check server
         health_runner = await run_health_server("worker", 8081)
 
-        # Initialize DB schema if tables don't exist yet
-        try:
-            await init_db()
-        except Exception as e:
-            logger.warning(f"[WORKER] Falha ao verificar/inicializar DB: {e}. Certifique-se de que o Postgres está pronto.")
+        # In production, Alembic owns the schema. Letting create_all() run
+        # before the migrator can create an unversioned partial database.
+        if self.settings.APP_ENV.lower() not in {"production", "prod"}:
+            try:
+                await init_db()
+            except Exception as e:
+                logger.warning(f"[WORKER] Falha ao verificar/inicializar DB: {e}. Certifique-se de que o Postgres está pronto.")
+        else:
+            logger.info("[WORKER] Schema de produção será gerenciado pelo Alembic.")
+
+        await self._wait_for_schema()
 
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
@@ -247,6 +254,23 @@ class Worker:
             return False
         age_minutes = (datetime.now(timezone.utc) - received).total_seconds() / 60.0
         return age_minutes > max_age
+
+    async def _wait_for_schema(self) -> None:
+        """Keep queued messages intact until the promotion schema is migrated."""
+        while self._running:
+            try:
+                async with async_session_maker() as session:
+                    await session.execute(text("SELECT matched_keyword FROM promotions LIMIT 0"))
+                logger.info("[WORKER] Schema do banco pronto; iniciando consumo da fila.")
+                return
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(
+                    "[WORKER] Schema do banco ainda não está pronto (%s); nova tentativa em 5s.",
+                    type(e).__name__,
+                )
+                await asyncio.sleep(5)
 
     async def _handle_failure(self, raw_msg: RawMessage) -> None:
         """

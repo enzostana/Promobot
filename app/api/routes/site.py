@@ -355,6 +355,11 @@ async def _read_meta(settings: Settings, db: AsyncSession) -> dict:
 
 @router.get("/", response_class=HTMLResponse)
 async def site_home(request: Request, db: AsyncSession = Depends(get_db)):
+    # O catálogo público foi retirado da raiz do domínio do bot enquanto o
+    # site não é reconstruído. Mantemos a exceção do callback OAuth abaixo.
+    if not request.query_params.get("code"):
+        return RedirectResponse("/painel", status_code=307)
+
     # MEL OAuth callback: the authorize URL returns here with ?code=...; exchange
     # the code server-side (PKCE-friendly) and show the result on /mel/connect.
     if request.query_params.get("code"):

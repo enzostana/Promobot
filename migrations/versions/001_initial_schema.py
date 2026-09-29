@@ -16,6 +16,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Older worker versions called Base.metadata.create_all() at startup.
+    # Those databases have the application tables but no alembic_version row,
+    # so replaying the initial CREATE TABLE statements fails with DuplicateTable.
+    # Adopt that schema and let subsequent revisions reconcile known additions.
+    existing_tables = set(sa.inspect(op.get_bind()).get_table_names())
+    app_tables = {
+        'sources', 'promotions', 'promotion_sources', 'affiliate_links',
+        'publications', 'filters', 'settings',
+    }
+    if existing_tables.intersection(app_tables):
+        from app.database.models import Base
+
+        Base.metadata.create_all(bind=op.get_bind())
+        return
+
     # 1. Sources table
     op.create_table(
         'sources',

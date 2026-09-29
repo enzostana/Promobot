@@ -51,6 +51,35 @@ echo "Construindo imagens da instância '${STACK}'..."
 sudo docker compose --project-name "$COMPOSE_PROJECT" --env-file "$COMPOSE_ENV_FILE" -f docker-compose.yml build migrator api worker telegram_listener
 sudo docker stack deploy -c "$RENDERED_FILE" "$STACK"
 
+# Swarm ignores depends_on ordering. Force the one-shot migrator to run on
+# every deploy, retry failures while Postgres starts, and do not restart the
+# application services until the schema is current.
+MIGRATOR_SERVICE="${STACK}_migrator"
+sudo docker service update --force "$MIGRATOR_SERVICE" >/dev/null
+echo "Aguardando migrações do banco (${MIGRATOR_SERVICE})..."
+MIGRATION_COMPLETE=false
+for _ in $(seq 1 90); do
+  task_id="$(sudo docker service ps --no-trunc --format '{{.ID}}' "$MIGRATOR_SERVICE" 2>/dev/null | head -n 1 || true)"
+  if [[ -n "$task_id" ]]; then
+    task_state="$(sudo docker inspect --type task --format '{{.Status.State}}' "$task_id" 2>/dev/null || true)"
+    if [[ "$task_state" == "complete" ]]; then
+      MIGRATION_COMPLETE=true
+      break
+    fi
+  fi
+  sleep 2
+done
+if [[ "$MIGRATION_COMPLETE" != true ]]; then
+  echo "Migrações não concluíram. Inspecione os logs de ${MIGRATOR_SERVICE} antes de liberar o worker." >&2
+  exit 1
+fi
+
+# Pick up the freshly built image and start the consumers only after the
+# database schema is ready. Existing Redis queue contents are preserved.
+for service in api worker telegram_listener; do
+  sudo docker service update --force "${STACK}_${service}" >/dev/null
+done
+
 # O compose NÃO declara ports do evolution (evita conflito de host com o fork2,
 # que usa o mesmo docker-compose.yml). Republição da porta 8085 é reaplicada aqui
 # para que redeploys não derrubem o promobot-evo (túnel vps-vscode -> 127.0.0.1:8085).

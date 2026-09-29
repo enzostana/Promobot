@@ -162,11 +162,14 @@ class WhatsAppPublisher(Publisher):
                     "mimetype": mime,
                     "media": media,
                     "caption": formatted_message,
+                    # Ask Evolution to build a WhatsApp link preview from the
+                    # affiliate URL in the media caption when the channel supports it.
+                    "linkPreview": True,
                     "fileName": f"promo_{uuid.uuid4().hex[:8]}.jpg",
                 }
             else:
                 url = f"{base_url}/message/sendText/{instance}"
-                body = {"number": target_chat, "text": formatted_message}
+                body = {"number": target_chat, "text": formatted_message, "linkPreview": True}
 
             resp = await self._post_with_retry(client, url, json_body=body, headers={"apikey": api_key})
             await self._http_close(client)

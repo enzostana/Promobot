@@ -235,8 +235,13 @@ class MercadoLivreProvider(AffiliateProvider):
         for p in tracking_params:
             params.pop(p, None)
 
-        if self.tag:
-            params["matt_tool"] = [self.tag]
+        # The active tracking tag read from the authenticated affiliate account
+        # is authoritative. `self.tag` can be stale or a profile word when the
+        # configured fallback is incomplete.
+        active_tag = getattr(self._minter, "_tag_in_use", None) if self._minter else None
+        tracking_tag = active_tag or self.tag
+        if tracking_tag:
+            params["matt_tool"] = [tracking_tag]
         if self.matt_word:
             params["matt_word"] = [self.matt_word]
 
@@ -260,7 +265,7 @@ class MercadoLivreProvider(AffiliateProvider):
         return urllib.parse.urlunparse(parsed._replace(path=f"/social/{self.word}", query=urllib.parse.urlencode(params)))
 
     def _try_mint(self, url: str) -> Optional[str]:
-        """Attempts official link minting; returns the /sec/ URL or None."""
+        """Attempts official link minting; returns the official short URL or None."""
         if not self._minter or not self._minter.available:
             return None
 
@@ -295,9 +300,9 @@ class MercadoLivreProvider(AffiliateProvider):
     def _is_own_official_link(self, url: str) -> bool:
         """True when the shortlink already resolves to this affiliate's headline page.
 
-        Official minted /sec links resolve to ``/social/<word>?ref=<signed>`` — the
-        page that renders the product's headline. Passing them through unchanged keeps
-        the headline; re-resolving them into a bare product URL loses it.
+        Official minted short links resolve to a Mercado Livre social page carrying
+        the product headline. Passing them through unchanged keeps the headline;
+        re-resolving them into a bare product URL loses it.
         """
         if not self.word or not self._is_shortlink(url):
             return False

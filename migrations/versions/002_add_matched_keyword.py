@@ -16,7 +16,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('promotions', sa.Column('matched_keyword', sa.String(length=100), nullable=True))
+    columns = {column['name'] for column in sa.inspect(op.get_bind()).get_columns('promotions')}
+    if 'matched_keyword' not in columns:
+        op.add_column('promotions', sa.Column('matched_keyword', sa.String(length=100), nullable=True))
 
 
 def downgrade() -> None:

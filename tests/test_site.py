@@ -52,11 +52,9 @@ async def test_site_home_public(async_db_session):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        res = await client.get("/")
-        assert res.status_code == 200
-        assert "Rufino Promo" in res.text
-        assert "Promoções" in res.text
-        assert 'href="/hub"' in res.text
+        res = await client.get("/", follow_redirects=False)
+        assert res.status_code == 307
+        assert res.headers["location"] == "/painel"
 
 
 @pytest.mark.asyncio
@@ -74,7 +72,7 @@ async def test_site_home_hides_painel_and_draft(async_db_session):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        res = await client.get("/")
+        res = await client.get("/promocoes")
         assert "Produto visível" in res.text
         assert "Rascunho interno" not in res.text
         assert "Do painel" not in res.text

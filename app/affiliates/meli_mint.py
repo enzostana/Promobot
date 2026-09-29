@@ -50,7 +50,7 @@ class MeliUrlNotAllowed(MeliMintError):
 
 
 class MeliLinkMinter:
-    """Mints official MELI affiliate links (`mercadolivre.com/sec/<code>`).
+    """Mints official MELI affiliate short links (currently `meli.la/<code>`).
 
     Replicates the exact flow the Central's "Gerador de Links" uses, driven by
     the affiliate's own session cookie (`ssid`). The session value is read from
@@ -138,18 +138,24 @@ class MeliLinkMinter:
             try:
                 resp = client.get(_TAGS_PATH)
                 if resp.status_code == 200:
-                    tags = resp.json()
-                    if isinstance(tags, list):
-                        for item in tags:
-                            if item.get("in_use"):
-                                self._tag_in_use = item.get("name")
-                                break
-                        if not self._tag_in_use and tags:
-                            self._tag_in_use = tags[0].get("name")
-                        self._tags_checked_at = time.monotonic()
-                    elif isinstance(tags, dict) and tags.get("name"):
-                        self._tag_in_use = tags.get("name")
-                        self._tags_checked_at = time.monotonic()
+                    payload = resp.json()
+                    if isinstance(payload, dict):
+                        tags = payload.get("tags") or payload.get("data")
+                        if not isinstance(tags, list):
+                            tags = [payload] if payload.get("tag") or payload.get("name") else []
+                    elif isinstance(payload, list):
+                        tags = payload
+                    else:
+                        tags = []
+
+                    def tag_value(item: dict) -> Optional[str]:
+                        return item.get("tag") or item.get("name")
+
+                    valid_tags = [item for item in tags if isinstance(item, dict) and tag_value(item)]
+                    active = next((item for item in valid_tags if item.get("in_use")), None)
+                    selected = active or (valid_tags[0] if valid_tags else None)
+                    self._tag_in_use = tag_value(selected) if selected else None
+                    self._tags_checked_at = time.monotonic()
             except Exception:
                 logger.debug("[MELI-MINT] Falha ao consultar etiquetas; usando fallback configurado.")
 
